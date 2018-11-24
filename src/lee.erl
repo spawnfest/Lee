@@ -22,7 +22,7 @@
 
 -type metatype() :: atom().
 
--type node_id() :: atom().
+-type node_id() :: term().
 
 -type key() :: [node_id()].
 
@@ -47,10 +47,10 @@
 %%====================================================================
 
 -define(typedef(Name, Arity, Validate),
-        Name => {[type]
-                , #{validate => fun lee_types:Validate/3}
-                , #{}
-                }).
+        {Name, Arity} => {[type]
+                         , #{validate => fun lee_types:Validate/3}
+                         , #{}
+                         }).
 
 -define(typedef(Name, Validate), ?typedef(Name, 0, Validate)).
 
@@ -78,17 +78,17 @@ namespace(Key, M) ->
 base_model() ->
     #{ lee =>
            #{ base_types =>
-                  #{ ?typedef(union,              validate_union           )
+                  #{ ?typedef(union,           2, validate_union           )
                    , ?typedef(term,               validate_term            )
                    , ?typedef(integer,            validate_integer         )
                    , ?typedef(float,              validate_float           )
                    , ?typedef(atom,               validate_atom            )
                    , ?typedef(binary,             validate_binary          )
-                   , ?typedef(any_tuple,          validate_any_tuple       )
+                   , ?typedef(tuple,              validate_any_tuple       )
                    , ?typedef(tuple,           1, validate_tuple           )
                    , ?typedef(list,            1, validate_list            )
                    , ?typedef(map,             2, validate_map             )
-                   , ?typedef(exact_map,       2, validate_exact_map       )
+                   , ?typedef(exact_map,       1, validate_exact_map       )
                    }
             }
      }.
@@ -115,8 +115,19 @@ validate_term(Model, Atom, Term) when is_atom(Atom) ->
                           )}
     end;
 validate_term(Model, Type = {TypeName, Attr, Params}, Term) ->
-    {_, #{validate := Fun}, _} = lee_model:get(TypeName, Model),
-    Fun(Model, Type, Term).
+    {Meta, Attr1, _} = lee_model:get(TypeName, Model),
+    case {lists:member(type, Meta), lists:member(typedef, Meta)} of
+        {true, false} ->
+            #{validate := Fun} = Attr1,
+            Fun(Model, Type, Term);
+        {false, true} ->
+            #{ type := Type1
+             , type_variables := TypeVars
+             } = Attr1,
+            VarVals = maps:from_list(lists:zip(TypeVars, Params)),
+            Type2 = subst_type_vars(Type1, VarVals),
+            validate_term(Model, Type2, Term)
+    end.
 
 %%====================================================================
 %% Internal functions
@@ -126,6 +137,15 @@ validate_term(Model, Type = {TypeName, Attr, Params}, Term) ->
 format(Fmt, Attrs) ->
     lists:flatten(io_lib:format(Fmt, Attrs)).
 
+subst_type_vars(Atom, _) when is_atom(Atom) ->
+    Atom;
+subst_type_vars({Meta, Attr, Params}, VarVals) ->
+    {Meta, Attr, [case VarVals of
+                      #{I := Subst} ->
+                          Subst;
+                      _ ->
+                          subst_type_vars(I, VarVals)
+                  end || I <- Params]}.
 
 %%====================================================================
 %% Unit tests

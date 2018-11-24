@@ -53,12 +53,15 @@
 %% Macros
 %%====================================================================
 
--define(te(Name, Attrs, Parameters), { [lee, base_types, Name]
-                                     , Attrs
-                                     , Parameters
-                                     }).
--define(te(Attrs, Parameters), ?te(?FUNCTION_NAME, Attrs, Parameters)).
--define(te(Parameters), ?te(?FUNCTION_NAME, #{}, Parameters)).
+-define(te(Name, Arity, Attrs, Parameters),
+        { [lee, base_types, {Name, Arity}]
+        , Attrs
+        , Parameters
+        }).
+-define(te(Attrs, Parameters),
+        ?te(?FUNCTION_NAME, ?FUNCTION_ARITY, Attrs, Parameters)).
+-define(te(Parameters),
+        ?te(?FUNCTION_NAME, ?FUNCTION_ARITY, #{}, Parameters)).
 
 
 -ifdef(TEST).
@@ -126,6 +129,7 @@ non_neg_integer() ->
            ) -> lee:typedef().
 range(A, B) ->
     ?te( integer
+       , 0
        , #{range => {A, B}}
        , []
        ).
@@ -181,7 +185,7 @@ validate_binary(_, _, Term) ->
 
 -spec tuple() -> lee:typedef().
 tuple() ->
-    ?te(any_tuple, #{}, []).
+    ?te([]).
 
 -spec validate_any_tuple( lee:model_fragment()
                         , lee:typedef()
@@ -250,7 +254,7 @@ list(Type) ->
 
 -spec non_empty_list(lee:typedef()) -> lee:typedef().
 non_empty_list(Type) ->
-    ?te(list, #{non_empty => true}, [Type]).
+    ?te(list, 1, #{non_empty => true}, [Type]).
 
 -spec validate_list( lee:model_fragment()
                    , lee:typedef()
@@ -397,15 +401,16 @@ validate_list_(Model, Param, [Term|Tail]) ->
 
 -define(valid(Type, Term),
         ?assertMatch( ok
-                    , lee:validate_term(lee:base_model(), Type, Term)
+                    , lee:validate_term(Model, Type, Term)
                     )).
 
 -define(invalid(Type, Term),
         ?assertMatch( {error, _}
-                    , lee:validate_term(lee:base_model(), Type, Term)
+                    , lee:validate_term(Model, Type, Term)
                     )).
 
 validate_concrete_atom_test() ->
+    Model = lee:base_model(),
     ?valid(true, true),
     ?valid(false, false),
     ?invalid(foo, 1),
@@ -413,6 +418,7 @@ validate_concrete_atom_test() ->
     ?invalid(foo, bar).
 
 validate_bool_test() ->
+    Model = lee:base_model(),
     ?valid(boolean(), true),
     ?valid(boolean(), false),
     ?invalid(boolean(), 1),
@@ -420,6 +426,7 @@ validate_bool_test() ->
     ?invalid(boolean(), foo).
 
 integer_test() ->
+    Model = lee:base_model(),
     ?valid(integer(), -1),
     ?valid(integer(), 1000),
     ?valid(integer(), 0),
@@ -434,23 +441,27 @@ integer_test() ->
     ?invalid(non_neg_integer(), -1).
 
 union_test() ->
+    Model = lee:base_model(),
     ?valid(number(), 1),
     ?valid(number(), 1.1),
     ?invalid(number(), []).
 
 term_test() ->
+    Model = lee:base_model(),
     ?valid(term(), 1),
     ?valid(term(), 1.1),
     ?valid(term(), {1, 2, [], foo}),
     ?valid(term(), [foo, 1, [] | gg]).
 
 atom_test() ->
+    Model = lee:base_model(),
     ?valid(atom(), foo),
     ?valid(atom(), bar),
     ?invalid(atom(), {}),
     ?invalid(atom(), 1).
 
 list_test() ->
+    Model = lee:base_model(),
     ?valid(list(), []),
     ?valid(non_empty_list(integer()), [1, 2, 3]),
     ?invalid(non_empty_list(term()), []),
@@ -460,12 +471,14 @@ list_test() ->
     ?invalid(list(), [foo, bar | baz]).
 
 string_test() ->
+    Model = lee:base_model(),
     ?valid(string(), "this is a string"),
     ?valid(string(), "(✿ ┛O‿‿O)┛彡♥   ¯\_(ツ)_/¯"),
     ?invalid(string(), "foo" ++ [bar, {}] ++ "baz"),
     ?invalid(string(), [-1, 2]).
 
 tuple_test() ->
+    Model = lee:base_model(),
     ?valid(tuple(), {}),
     ?valid(tuple(), {foo, 1, []}),
     ?invalid(tuple(), 1),
@@ -482,12 +495,14 @@ tuple_test() ->
     ?invalid(T, {false, "1"}).
 
 binary_test() ->
+    Model = lee:base_model(),
     ?valid(binary(), <<>>),
     ?valid(binary(), <<"foo">>),
     ?invalid(binary(), "fooo"),
     ?invalid(binary(), 1).
 
 map_test() ->
+    Model = lee:base_model(),
     T = map(atom(), string()),
     ?valid(T, #{}),
     ?valid(T, #{foo => "bar"}),
@@ -500,6 +515,7 @@ map_test() ->
                  }).
 
 exact_map_test() ->
+    Model = lee:base_model(),
     T = exact_map(#{ foo => boolean()
                    , bar => string()
                    }),
@@ -508,5 +524,31 @@ exact_map_test() ->
     ?invalid(T, #{foo => foo, bar => "bar"}),
     ?invalid(T, #{foo => true}),
     ?invalid(T, #{foo => true, bar => 1}).
+
+typedef_test() ->
+    StupidList =
+        fun(A) ->
+                {[stupid_list], #{}, [A]}
+        end,
+    Model0 = #{stupid_list =>
+                   {[typedef]
+                   , #{ type => union( tuple(['$a', StupidList('$a')])
+                                     , nil
+                                     )
+                      , type_variables => ['$a']
+                      }
+                   , #{}
+                   }
+              },
+    {ok, Model} = lee_model:merge(Model0, lee:base_model()),
+    T = StupidList(union(integer(), foo)),
+    ?valid(T, nil),
+    ?valid(T, {1, nil}),
+    ?valid(T, {foo, {1, nil}}),
+    ?valid(T, {42, {foo, {1, nil}}}),
+    ?invalid(T, bar),
+    ?invalid(T, 1.1),
+    ?invalid(T, {1, foo}),
+    ?invalid(T, {foo, {42, {1.1, nil}}}).
 
 -endif.

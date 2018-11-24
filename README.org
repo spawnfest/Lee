@@ -1,7 +1,23 @@
 #+TITLE: Lee
 
+* User stories
+
+- As a power user I want to configure tools without looking into their
+  code. I want a useful error message instead of a BEAM dump when I
+  make an error in the config. I want documentation about all
+  configurable parameters, their purpose and type.
+
+- As a designer I want to develop the tool instead of dealing with
+  the boring configuration-related stuff.
+
+There are few approaches to this conflict:
+
+[[file:doc/images/explanation.png]]
+
+* Explanation
+
 /Lee/ helps creating type-safe, self-documenting configuration for
-Erlang applications. It is basically a data modelling DSL, vaguely
+Erlang applications. It is basically a data modeling DSL, vaguely
 inspired by [[https://tools.ietf.org/html/rfc7950][YANG]], however scaled down /a lot/.
 
 Software configuration is a solved problem. The solution is to gather

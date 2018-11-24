@@ -15,7 +15,7 @@
                   .
 
 model() ->
-  {ok, Model} = lee:merge(
+  {ok, Model} = lee_model:merge(
     [ #{ num_jobs =>
            {[value, cli_parameter, environment_variable]
            , #{ oneliner => "Maximal number of parallel jobs"
@@ -58,7 +58,7 @@ model() ->
               , type => dep_spec()
               }}
       }
-    , lee:refl_types([tendon_types], [dep_spec/0])
+    , lee_type_refl([tendon_types], [dep_spec/0])
       %% Just for reference, define a type manually instead of using reflection:
     , lee:namespace([tendom_types]
                    , #{ version =>

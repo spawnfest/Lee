@@ -1,7 +1,9 @@
 -module(lee_model).
 
 %% API exports
--export([ desugar/1
+-export([ merge/1
+        , merge/2
+        , desugar/1
         , traverse/3
         , map/2
         , map_with_key/2
@@ -19,27 +21,32 @@
 
 %%====================================================================
 %% API functions
-%% ====================================================================
+%%====================================================================
 
-%% @doc Make an index of MOCs belonging to metatypes. Assumes
-%% desugared model
--spec mk_metatype_index(lee:model_fragment()) ->
-                           #{lee:metatype() => [map_sets:set(lee:key())]}.
-mk_metatype_index(MF) ->
-  {_, Idx} = traverse( fun(Key, {Metatypes, _, _}, Acc) ->
-                           lists:fold( fun(MT, Acc) ->
-                                           #{MT := L0} = Acc,
-                                           Acc#{MT => [Key | ]}
-                                          , Acc
-                                          , Metatypes
-                            )
-                       end
-                     , #{}
-                     , MF
-                     ),
-  Idx.
+%% @doc Merge multiple model fragments while checking for clashing
+%% names
+-spec merge([lee:model_fragment()]) ->
+                   {ok, lee:model_fragment()}
+                 | {error, string()}
+                 .
+merge(FragList) ->
+    lists:foldl(fun merge/2, #{}, FragList).
 
-%% @doc Get a MOC from the model, assumes that the key is present
+%% @doc Merge two model fragments while checking for clashing names
+-spec merge(lee:model_fragment(), lee:model_fragment()) ->
+                   {ok, lee:model_fragment()}
+                 | {clashing_keys, [lee:node_id()]}
+                 .
+merge(M1, M2) ->
+    try
+        {ok, merge([], M1, M2)}
+    catch
+        Err = {clashing_keys, _} ->
+            Err
+    end.
+
+%% @doc Get a MOC from the model, assumes that the key is present and
+%% non-empty
 -spec get(lee:key(), lee:model_fragment()) ->
              lee:moc().
 get([Id], MF) ->
@@ -86,6 +93,7 @@ map_with_key(Fun, M) ->
                 ),
     Term.
 
+%% @doc Recursion schema for model traversal
 -spec traverse( fun((lee:key(), lee:moc(), Acc) -> {lee:moc(), Acc})
               , Acc
               , lee:model_fragment()
@@ -93,6 +101,41 @@ map_with_key(Fun, M) ->
               when Acc :: term().
 traverse(Fun, Acc0, M) ->
     traverse([], Fun, Acc0, M).
+
+%% @doc Make an index of MOCs belonging to metatypes. Assumes
+%% desugared model
+-spec mk_metatype_index(lee:model_fragment()) ->
+                           #{lee:metatype() => [map_sets:set(lee:key())]}.
+mk_metatype_index(MF) ->
+    {_, Idx} = traverse( fun mk_metatype_index_/3
+                       , #{}
+                       , MF
+                       ),
+    Idx.
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
+
+merge(Key0, M1, M2) ->
+    maps:fold( fun(K, N1, Acc) ->
+                       Key = Key0 ++ [K],
+                       case Acc of
+                           #{K := N2} when is_map(N1)
+                                         , is_map(N2) ->
+                               %% Both elements are namespaces, merge them
+                               Acc#{K => merge(Key, N1, N2)};
+                           #{K := _} ->
+                               %% TODO: currently we stop on the first
+                               %% error, it's not user-friendly
+                               throw({clashing_keys, [Key]});
+                           _ ->
+                               Acc#{K => N1}
+                       end
+               end
+             , M1
+             , M2
+             ).
 
 traverse(Key0, Fun, AccIn, M) when is_map(M) ->
     maps:fold( fun(K, Val0, {Map0, Acc0}) ->
@@ -113,9 +156,16 @@ traverse(Key, Fun, Acc0, MO0) ->
             {{Metatype, Attrs, Children}, Acc}
     end.
 
-%%====================================================================
-%% Internal functions
-%%====================================================================
+mk_metatype_index_(Key, MOC = {Metatypes, _, _}, Acc0) ->
+    Acc = lists:foldl( fun(MT, Acc) ->
+                               S0 = maps:get(MT, Acc, #{}),
+                               Acc#{MT => map_sets:add_element(Key, S0)}
+                       end
+                     , Acc0
+                     , Metatypes
+                     ),
+    {MOC, Acc}.
+
 desugar_mo(_, {MetaTypes, Attrs}, _) ->
     {{MetaTypes, Attrs, #{}}, undefined};
 desugar_mo(_, MO = {_, _, _}, _) ->
@@ -123,16 +173,40 @@ desugar_mo(_, MO = {_, _, _}, _) ->
 
 -ifdef(TEST).
 
--define(mo(Attr, Children), {[t1], Attr, Children}).
+-define(moc(Attr, Children), {[t1], Attr, Children}).
 
--define(mo(Attr), {[t1], Attr}).
+-define(moc(Attr), {[t1], Attr}).
 
--define(model(Attr), #{ foo => ?mo(Attr#{key => [foo]})
-                      , bar => ?mo(Attr#{key => [bar]}, #{})
-                      , baz => ?mo( Attr#{key => [baz]}
-                                  , #{quux => ?mo(Attr#{key => [baz, quux]}, #{})}
-                                  )
+-define(moc, {[], #{}, #{}}).
+
+-define(model(Attr), #{ foo => ?moc(Attr#{key => [foo]})
+                      , bar =>
+                            #{ bar => ?moc(Attr#{key => [bar, bar]}, #{})
+                             }
+                      , baz => ?moc( Attr#{key => [baz]}
+                                   , #{quux => ?moc(Attr#{key => [baz, quux]}, #{})}
+                                   )
                       }).
+
+merge_test() ->
+    ?assertMatch( {ok, #{}}
+                , merge(#{}, #{})
+                ),
+    ?assertMatch( {ok, #{foo := ?moc, bar := ?moc}}
+                , merge(#{foo => ?moc}, #{bar => ?moc})
+                ),
+    ?assertMatch( {ok, #{foo := #{ bar := ?moc
+                                 , baz := ?moc
+                                 }}}
+                , merge( #{foo => #{bar => ?moc}}
+                       , #{foo => #{baz => ?moc}}
+                       )
+                ),
+    ?assertMatch( {clashing_keys, [[foo]]}
+                , merge( #{foo => ?moc}
+                       , #{foo => ?moc, bar => ?moc}
+                       )
+                ).
 
 traverse_test() ->
     CheckKey =
@@ -151,16 +225,27 @@ traverse_test() ->
 
 desugar_test() ->
     ?assertEqual( ?model(#{}) #{foo =>
-                                    ?mo(#{key => [foo]}, #{})}
+                                    ?moc(#{key => [foo]}, #{})}
                 , desugar(?model(#{}))
                 ).
 
 get_test() ->
-    ?assertEqual( ?mo(#{key => [foo]})
+    ?assertEqual( ?moc(#{key => [foo]})
                 , lee_model:get([foo], ?model(#{}))
                 ),
-    ?assertEqual( ?mo(#{key => [baz, quux]}, #{})
+    ?assertEqual( ?moc(#{key => [baz, quux]}, #{})
                 , lee_model:get([baz, quux], ?model(#{}))
+                ).
+
+mk_metatype_index_test() ->
+    Expected = #{ t1 =>
+                      map_sets:from_list([[foo], [bar, bar], [baz], [baz, quux]])
+                , t2 =>
+                      map_sets:from_list([[quux]])
+                },
+    Model = desugar(?model(#{}) #{quux => {[t2], #{}}}),
+    ?assertEqual( Expected
+                , mk_metatype_index(Model)
                 ).
 
 -endif.

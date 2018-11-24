@@ -1,10 +1,10 @@
 -module(lee).
 
 %% API exports
--export([ merge/1
-        , merge/2
-        , namespace/2
+-export([ namespace/2
         , base_model/0
+        , metametamodel/0
+        , validate_term/3
         ]).
 
 -export_type([ node/0
@@ -18,6 +18,8 @@
 %% Types
 %%====================================================================
 
+-type validate_result() :: ok | {error, term()}.
+
 -type metatype() :: atom().
 
 -type node_id() :: atom().
@@ -26,12 +28,31 @@
 
 -type properties() :: #{atom() => term()}.
 
--type model_fragment() :: #{node_id() => moc()}.
+-type model_fragment() :: #{node_id() => moc() | model_fragment()}.
+
+-type typedef() :: { Type       :: key()
+                   , Attributes :: properties()
+                   , Parameters :: [typedef()]
+                   }
+                 | atom() %% Literal atoms get a free pass
+                 .
 
 %% Managed object class
 -type moc() :: {[metatype()], properties(), model_fragment()}
-             | {[metatype()], properties()}     %% Shortcut for child-free MOs
+             | {[metatype()], properties()} %% Shortcut for child-free MOs
              .
+
+%%====================================================================
+%% Macros
+%%====================================================================
+
+-define(typedef(Name, Arity, Validate),
+        Name => {[type]
+                , #{validate => fun lee_types:Validate/3}
+                , #{}
+                }).
+
+-define(typedef(Name, Validate), ?typedef(Name, 0, Validate)).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -40,31 +61,6 @@
 %%====================================================================
 %% API functions
 %%====================================================================
-
-%% @doc Merge multiple model fragments while checking for clashing
-%% names
--spec merge([lee:model_fragment()]) ->
-                   {ok, lee:model_fragment()}
-                 | {error, string()}
-                 .
-merge(FragList) ->
-    lists:foldl(fun merge/2, #{}, FragList).
-
-%% @doc Merge two model fragments while checking for clashing names
--spec merge(lee:model_fragment(), lee:model_fragment()) ->
-                   {ok, lee:model_fragment()}
-                 | {clashing_keys, [lee:node_id()]}
-                 .
-merge(M1, M2) ->
-    M = maps:merge(M1, M2),
-    OkSize = maps:size(M1) + maps:size(M2),
-    case maps:size(M) of
-        OkSize ->
-            {ok, M};
-        _ ->
-            ClashingNames = map_sets:to_list(map_sets:union(M1, M2)),
-            {clashing_keys, ClashingNames}
-    end.
 
 %% @doc Put model fragment in a namespace
 -spec namespace(lee:key(), lee:model_fragment()) ->
@@ -77,14 +73,59 @@ namespace(Key, M) ->
                , lists:reverse(Key)
                ).
 
-%% @doc Model fragment containing base types
+%% @doc Model fragment containing base types.
 -spec base_model() -> lee:model_fragment().
 base_model() ->
-    #{}.
+    #{ lee =>
+           #{ base_types =>
+                  #{ ?typedef(union,              validate_union           )
+                   , ?typedef(term,               validate_term            )
+                   , ?typedef(integer,            validate_integer         )
+                   , ?typedef(float,              validate_float           )
+                   , ?typedef(atom,               validate_atom            )
+                   , ?typedef(binary,             validate_binary          )
+                   , ?typedef(any_tuple,          validate_any_tuple       )
+                   , ?typedef(tuple,           1, validate_tuple           )
+                   , ?typedef(list,            1, validate_list            )
+                   , ?typedef(map,             2, validate_map             )
+                   , ?typedef(exact_map,       2, validate_exact_map       )
+                   }
+            }
+     }.
+
+%% @doc A model validating metamodels
+-spec metametamodel() -> lee:model_fragment().
+metametamodel() ->
+    MetaModel = #{
+                 },
+    {ok, Result} = lee_model:merge([MetaModel, base_model()]),
+    Result.
+
+-spec validate_term( lee:model_fragment()
+                   , lee:typedef()
+                   , term()
+                   ) -> validate_result().
+validate_term(Model, Atom, Term) when is_atom(Atom) ->
+    case Term of
+        Atom ->
+            ok;
+        _ ->
+            {error, format( "Expected ~p, got ~p"
+                          , [Atom, Term]
+                          )}
+    end;
+validate_term(Model, Type = {TypeName, Attr, Params}, Term) ->
+    {_, #{validate := Fun}, _} = lee_model:get(TypeName, Model),
+    Fun(Model, Type, Term).
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+%% TODO get rid of duplicated functions and types
+format(Fmt, Attrs) ->
+    lists:flatten(io_lib:format(Fmt, Attrs)).
+
 
 %%====================================================================
 %% Unit tests
@@ -92,16 +133,7 @@ base_model() ->
 
 -ifdef(TEST).
 
-merge_test() ->
-    ?assertMatch( {ok, #{}}
-                , merge(#{}, #{})
-                ),
-    ?assertMatch( {ok, #{foo := #{}, bar := #{}}}
-                , merge(#{foo => #{}}, #{bar => #{}})
-                ),
-    ?assertMatch( {clashing_keys, [foo]}
-                , merge(#{foo => #{}}, #{foo => #{}})
-                ).
+-define(moc, {[], #{}, #{}}).
 
 namespace_test() ->
     ?assertMatch( #{foo := #{bar := #{baz := #{}}}}

@@ -21,10 +21,10 @@ Erlang applications. It is basically a data modeling DSL, vaguely
 inspired by [[https://tools.ietf.org/html/rfc7950][YANG]], however scaled down /a lot/.
 
 Software configuration is a solved problem. The solution is to gather
-all the information about user-facing commands and parameters in one
-place called /data model/ and generate all kinds of code and
+all the information about the user-facing commands and parameters in
+one place called /data model/ and generate all kinds of code and
 documentation from it, instead of spending a lot of time trying to
-keep it in sync with the documentation and failing in this.
+keep everything in sync and inevitably failing.
 
 Unfortunately, the existing data modeling solutions are extremely
 heavy and nasty to deal with. One doesn't want to mess with YANG

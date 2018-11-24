@@ -1,0 +1,24 @@
+#+TITLE: Lee
+
+/Lee/ helps creating type-safe, self-documenting configuration for
+Erlang applications. It is basically a data modelling DSL, vaguely
+inspired by [[https://tools.ietf.org/html/rfc7950][YANG]], however scaled down /a lot/.
+
+Software configuration is a solved problem. The solution is to gather
+all the information about user-facing commands and parameters in one
+place called /data model/ and generate all kinds of code and
+documentation from it, instead of spending a lot of time trying to
+keep it in sync with the documentation and failing in this.
+
+Unfortunately, the existing data modeling solutions are extremely
+heavy and nasty to deal with. One doesn't want to mess with YANG
+compilers and proprietary libraries for a mere small tool, and it's
+understandable. /Lee/ attempts to implement a /reasonably useful/ data
+modeling DSL, some bare-bones libraries for CLI and config file
+parsing, together with the model validation routines in under 3000 LOC
+or so.
+
+* Name?
+
+This library is named after Tsung-Dao Lee, a physicist who predicted
+P-symmetry violation together with Chen-Ning Yang.

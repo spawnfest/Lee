@@ -15,7 +15,7 @@
                   .
 
 model() ->
-  lee:merge(
+  {ok, Model} = lee:merge(
     [ #{ num_jobs =>
            {[value, cli_parameter, environment_variable]
            , #{ oneliner => "Maximal number of parallel jobs"
@@ -73,7 +73,8 @@ model() ->
     , lee:namespace(asn1, tendon_prv_asn1:model())
     , lee:namespace(hex, tendon_prv_hex:model())
     , lee:base_model()
-    ]).
+    ]),
+  Model.
 
 is_url(Str) ->
   try

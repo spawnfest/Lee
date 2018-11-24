@@ -26,11 +26,12 @@
 
 -type properties() :: #{atom() => term()}.
 
--type model_fragment() :: #{node_id() => mo()}.
+-type model_fragment() :: #{node_id() => moc()}.
 
--type mo() :: {[metatype()], properties(), model_fragment()}
-            | {[metatype()], properties()}     %% Shortcut for child-free MOs
-            .
+%% Managed object class
+-type moc() :: {[metatype()], properties(), model_fragment()}
+             | {[metatype()], properties()}     %% Shortcut for child-free MOs
+             .
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").

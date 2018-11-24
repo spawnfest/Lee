@@ -5,6 +5,8 @@
         , traverse/3
         , map/2
         , map_with_key/2
+        , get/2
+        , mk_metatype_index/1
         ]).
 
 %%====================================================================
@@ -17,7 +19,38 @@
 
 %%====================================================================
 %% API functions
-%%====================================================================
+%% ====================================================================
+
+%% @doc Make an index of MOCs belonging to metatypes. Assumes
+%% desugared model
+-spec mk_metatype_index(lee:model_fragment()) ->
+                           #{lee:metatype() => [map_sets:set(lee:key())]}.
+mk_metatype_index(MF) ->
+  {_, Idx} = traverse( fun(Key, {Metatypes, _, _}, Acc) ->
+                           lists:fold( fun(MT, Acc) ->
+                                           #{MT := L0} = Acc,
+                                           Acc#{MT => [Key | ]}
+                                          , Acc
+                                          , Metatypes
+                            )
+                       end
+                     , #{}
+                     , MF
+                     ),
+  Idx.
+
+%% @doc Get a MOC from the model, assumes that the key is present
+-spec get(lee:key(), lee:model_fragment()) ->
+             lee:moc().
+get([Id], MF) ->
+    maps:get(Id, MF);
+get([Id|Rest], MF) ->
+    case maps:get(Id, MF) of
+      Map when is_map(Map) ->
+        get(Rest, Map);
+      {_, _, Children} ->
+        get(Rest, Children)
+    end.
 
 %% @doc Transform all MOs to fully-qualified form
 -spec desugar(lee:model_fragment()) -> lee:model_fragment().
@@ -53,7 +86,7 @@ map_with_key(Fun, M) ->
                 ),
     Term.
 
--spec traverse( fun((lee:key(), lee:mo(), Acc) -> {lee:mo(), Acc})
+-spec traverse( fun((lee:key(), lee:moc(), Acc) -> {lee:moc(), Acc})
               , Acc
               , lee:model_fragment()
               ) -> {lee:model_fragment(), Acc}
@@ -83,7 +116,6 @@ traverse(Key, Fun, Acc0, MO0) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
 desugar_mo(_, {MetaTypes, Attrs}, _) ->
     {{MetaTypes, Attrs, #{}}, undefined};
 desugar_mo(_, MO = {_, _, _}, _) ->
@@ -121,6 +153,14 @@ desugar_test() ->
     ?assertEqual( ?model(#{}) #{foo =>
                                     ?mo(#{key => [foo]}, #{})}
                 , desugar(?model(#{}))
+                ).
+
+get_test() ->
+    ?assertEqual( ?mo(#{key => [foo]})
+                , lee_model:get([foo], ?model(#{}))
+                ),
+    ?assertEqual( ?mo(#{key => [baz, quux]}, #{})
+                , lee_model:get([baz, quux], ?model(#{}))
                 ).
 
 -endif.

@@ -17,10 +17,19 @@ model() ->
                                                   undefined
                                           end
                                   end
+
                             , list_all_keys =>
                                   fun(_, Map) ->
                                           maps:keys(Map)
                                   end
+
+                            , put => fun(_, Map, Key, Val) ->
+                                             Map #{Key => Val}
+                                     end
+
+                            , empty => fun(_) ->
+                                               #{}
+                                       end
                             }
                          , []
                          }}

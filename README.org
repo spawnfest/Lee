@@ -106,12 +106,12 @@ main(Config) ->
     MyModel = #{ foo => {[value]
                         , #{ mandatory => true
                            , type => boolean()
-                           , oneliner => "This values controls fooing"
+                           , oneliner => "This value controls fooing"
                            , doc => "Blah blah blah"
                            }}
                , bar => {[value]
                         , #{ type => integer()
-                           , oneliner => "This values controls baring"
+                           , oneliner => "This value controls baring"
                            , doc => "Blah blah blah"
                            , default => 42
                            }}
@@ -127,13 +127,13 @@ main(Config) ->
                                   , lee:base_metamodel()
                                     %% Specify that the config is stored as a simple map:
                                   , lee_map_getter:model()
-                                  , Model0
+                                  , MyModel
                                   ]),
     %% Now we can verify `Config' against the model:
     case lee:validate(Model, Config) of
       {ok, _Warnings} ->
           %% And finally we can read values from the config
-          %% And they do have the specified types!
+          %% And they _do have_ the specified types!
           {ok, Foo} = lee:get(Model, Config, [foo]),
           {ok, Bar} = lee:get(Model, Config, [bar]),
           ok;
@@ -143,6 +143,64 @@ main(Config) ->
      end.
 #+END_SRC
 
+** Creating the config
+
+And of course reading the config is model-driven too. Extend the model
+with a few new metatypes:
+
+#+BEGIN_SRC erlang
+    MyModel = #{ foo => {[value, environment_variable, cli_param]
+                        , #{ mandatory => true
+                           , type => string()
+                           , oneliner => "This value controls fooing"
+                           , doc => "Blah blah blah"
+                           , env => "FOO"
+                           , cli_param => "foo"
+                           , cli_short => "f"
+                           }}
+               , bar => {[value, cli_param]
+                        , #{ type => integer()
+                           , oneliner => "This value controls baring"
+                           , doc => "Blah blah blah"
+                           , default => 42
+                           , cli_param => "bar"
+                           , cli_short => "b"
+                           }}
+               }
+#+END_SRC
+
+And merge it with some new metamodels:
+
+#+BEGIN_SRC erlang
+    {ok, Model} = lee_model:merge([ lee:base_model()
+                                  , lee:base_metamodel()
+                                  , lee_cli:metamodel()
+                                  , lee_env:metamodel()
+                                  , lee_map_getter:model()
+                                  , MyModel
+                                  ])
+#+END_SRC
+
+Reading the config is done like this:
+
+#+BEGIN_SRC erlang
+main(CliAttrs) ->
+   ...
+   Config0 = lee_env:read(Model),
+   Config1 = lee_cli:read(Model, CliAttrs),
+   %% Let's suppose CLI arguments should override environment variables:
+   Config = maps:merge(Config0, Config1),
+   ...
+#+END_SRC
+
+And it's all that it takes.
+
+** TODO Documentation
+
+Note that the model already contains the docstrings which can be
+easily transformed to manpages and what not.
+
+* TODO Metamodels
 
 * Name?
 

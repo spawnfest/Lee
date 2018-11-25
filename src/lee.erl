@@ -159,10 +159,15 @@ get(Model, Config, Key) ->
     {_, #{getter := Getter}, _} = lee_model:get([lee, storage], Model),
     case Getter(Model, Config, Key) of
         {ok, Val} ->
-            Val;
+            {ok, Val};
         undefined ->
             {MetaTypes, Attrs, _} = lee_model:get(Key, Model),
-            maps:get(default, Attrs)
+            case Attrs of
+                #{default := Val} ->
+                    {ok, Val};
+                _ ->
+                    undefined
+            end
     end.
 
 %% Validate the config against a model
@@ -317,8 +322,8 @@ get_test() ->
                                   ]),
     Config = #{ [foo] => true
               },
-    ?assertMatch(true, lee:get(Model, Config, [foo])),
-    ?assertMatch(42, lee:get(Model, Config, [bar])),
+    ?assertMatch({ok, true}, lee:get(Model, Config, [foo])),
+    ?assertMatch({ok, 42}, lee:get(Model, Config, [bar])),
     ok.
 
 

@@ -5,47 +5,58 @@
         , union/1
         , boolean/0
         , validate_union/3
+        , print_union/2
 
         , term/0
         , any/0
         , validate_term/3
+        , print_term/2
 
         , integer/0
         , non_neg_integer/0
         , range/2
         , validate_integer/3
+        , print_integer/2
 
         , float/0
         , validate_float/3
+        , print_float/2
 
         , atom/0
         , validate_atom/3
+        , print_atom/2
 
         , binary/0
         , validate_binary/3
+        , print_binary/2
 
         , list/0
         , list/1
         , nonempty_list/1
         , string/0
         , validate_list/3
+        , print_list/2
 
 
         , tuple/0
         , validate_any_tuple/3
+        , print_any_tuple/2
 
         , tuple/1
         , validate_tuple/3
+        , print_tuple/2
 
         , map/2
         , validate_map/3
+        , print_map/2
 
         , exact_map/1
         , validate_exact_map/3
+        , print_exact_map/2
 
         , number/0
 
-        , print_type/1
+        , print_type/2
         ]).
 
 -type validate_result() :: ok | {error, term()}.
@@ -97,11 +108,19 @@ validate_union(Model, {_, _, [A, B]}, Term) ->
                     ok;
                 {error, _} ->
                     Msg = format( "Expected ~s | ~s, got ~p"
-                                , [print_type(A), print_type(B), Term]
+                                , [ print_type(Model, A)
+                                  , print_type(Model, B)
+                                  , Term
+                                  ]
                                 ),
                     {error, Msg}
             end
     end.
+
+-spec print_union(lee:model_fragment(), lee:typedef()) ->
+                         iolist().
+print_union(Model, {_, _, [A, B]}) ->
+    [print_type_(Model, A), " | ", print_type_(Model, B)].
 
 -spec boolean() -> lee:typedef().
 boolean() ->
@@ -115,7 +134,7 @@ integer() ->
                       , lee:typedef()
                       , term()
                       ) -> validate_result().
-validate_integer(_, Self = {_, #{range := {A, B}}, []}, Term) ->
+validate_integer(Model, Self = {_, #{range := {A, B}}, []}, Term) ->
     try
         is_integer(Term) orelse throw(badint),
         A =:= neg_infinity orelse Term >= A orelse throw(badint),
@@ -124,8 +143,24 @@ validate_integer(_, Self = {_, #{range := {A, B}}, []}, Term) ->
     catch
         badint ->
             {error, format( "Expected ~s, got ~p"
-                          , [print_type(Self), Term]
+                          , [print_type(Model, Self), Term]
                           )}
+    end.
+
+-spec print_integer(lee:model_fragment(), lee:typedef()) ->
+                         iolist().
+print_integer(Model, {_, #{range := Range}, _}) ->
+    case Range of
+        {neg_infinity, infinity} ->
+            "integer()";
+        {0, infinity} ->
+            "non_neg_integer()";
+        {0, 255} ->
+            "byte()";
+        {0, 16#10ffff} ->
+            "char()";
+        {A, B} ->
+            [integer_to_list(A), "..", integer_to_list(B)]
     end.
 
 -spec non_neg_integer() -> lee:typedef().
@@ -161,6 +196,11 @@ validate_float(_, _, Term) ->
             {error, format("Expected float(), got ~p", [Term])}
     end.
 
+-spec print_float(lee:model_fragment(), lee:typedef()) ->
+                         iolist().
+print_float(_, _) ->
+    "float()".
+
 -spec atom() -> lee:typedef().
 atom() ->
     ?te([]).
@@ -175,6 +215,11 @@ validate_atom(_, _, Term) ->
        true ->
             {error, format("Expected atom(), got ~p", [Term])}
     end.
+
+-spec print_atom(lee:model_fragment(), lee:typedef()) ->
+                         iolist().
+print_atom(_, _) ->
+    "atom()".
 
 -spec binary() -> lee:typedef().
 binary() ->
@@ -191,6 +236,11 @@ validate_binary(_, _, Term) ->
             {error, format("Expected binary(), got ~p", [Term])}
     end.
 
+-spec print_binary(lee:model_fragment(), lee:typedef()) ->
+                         iolist().
+print_binary(_, _) ->
+    "binary()".
+
 -spec tuple() -> lee:typedef().
 tuple() ->
     ?te([]).
@@ -205,6 +255,11 @@ validate_any_tuple(_, _, Term) ->
        true ->
             {error, format("Expected tuple(), got ~p", [Term])}
     end.
+
+-spec print_any_tuple(lee:model_fragment(), lee:typedef()) ->
+                             iolist().
+print_any_tuple(_, _) ->
+    "tuple()".
 
 -spec tuple([lee:typedef()]) -> lee:typedef().
 tuple(Params) ->
@@ -233,9 +288,15 @@ validate_tuple(Model, Self = {_, _, Params}, Term) ->
     catch
         badtuple ->
             {error, format( "Expected ~s, got ~p"
-                          , [print_type(Self), Term]
+                          , [print_type(Model, Self), Term]
                           )}
     end.
+
+-spec print_tuple(lee:model_fragment(), lee:typedef()) ->
+                             iolist().
+print_tuple(Model, {_, _, Params}) ->
+    PS = [print_type_(Model, I) || I <- Params],
+    ["{", lists:join(",", PS), "}"].
 
 -spec term() -> lee:typedef().
 term() ->
@@ -252,6 +313,11 @@ any() ->
 validate_term(_, _, _) ->
     ok.
 
+-spec print_term(lee:model_fragment(), lee:typedef()) ->
+                             iolist().
+print_term(_, _) ->
+    "term()".
+
 -spec list() -> lee:typedef().
 list() ->
     list(term()).
@@ -259,6 +325,7 @@ list() ->
 -spec list(lee:typedef()) -> lee:typedef().
 list(Type) ->
     ?te(#{non_empty => false}, [Type]).
+
 
 -spec nonempty_list(lee:typedef()) -> lee:typedef().
 nonempty_list(Type) ->
@@ -280,13 +347,29 @@ validate_list( Model
     catch
         {badelem, Elem} ->
             {error, format( "Expected ~s, got ~p in ~s"
-                          , [print_type(Param), Elem, print_type(Self)]
+                          , [ print_type(Model, Param)
+                            , Elem
+                            , print_type(Model, Self)
+                            ]
                           )};
         badlist ->
             {error, format( "Expected ~s, got ~p"
-                          , [print_type(Self), Term]
+                          , [ print_type(Model, Self)
+                            , Term
+                            ]
                           )}
     end.
+
+-spec print_list(lee:model_fragment(), lee:typedef()) ->
+                             iolist().
+print_list(Model, {_, #{non_empty := NonEmpty}, [Par]}) ->
+    case NonEmpty of
+        true ->
+            Prefix = "nonempty_";
+        false ->
+            Prefix = ""
+    end,
+    [Prefix, "list(", print_type_(Model, Par), ")"].
 
 -spec map(lee:typedef(), lee:typedef()) -> lee:typedef().
 map(K, V) ->
@@ -313,13 +396,24 @@ validate_map( Model
     catch
         {badval, Key, Val} ->
             {error, format( "Expected ~s, but key ~p got value ~p instead"
-                          , [print_type(Self), Key, Val]
+                          , [ print_type(Model, Self)
+                            , Key
+                            , Val
+                            ]
                           )};
         badmap ->
             {error, format( "Expected ~s, got ~p"
-                          , [print_type(Self), Term]
+                          , [ print_type(Model, Self)
+                            , Term
+                            ]
                           )}
     end.
+
+
+-spec print_map(lee:model_fragment(), lee:typedef()) ->
+                             iolist().
+print_map(Model, {_, _, [K, V]}) ->
+    ["map(", print_type_(Model, K), ",", print_type_(Model, V), ")"].
 
 %% "Literal" map
 -spec exact_map(#{term() := lee:typedef()}) -> lee:typedef().
@@ -361,28 +455,61 @@ validate_exact_map( Model
     catch
         {badval, Key, Val, ValType} ->
             {error, format( "Expected ~s in key ~p of ~s, got ~p"
-                          , [ print_type(ValType)
+                          , [ print_type(Model, ValType)
                             , Key
-                            , print_type(Self)
+                            , print_type(Model, Self)
                             , Val
                             ]
                           )};
         {badkey, Key} ->
             {error, format( "Missing key(s) ~p in ~s"
-                          , [Term, print_type(Self)]
+                          , [ Term
+                            , print_type(Model, Self)
+                            ]
                           )};
         badmap ->
             {error, format( "Expected ~s, got ~p"
-                          , [print_type(Self), Term]
+                          , [ print_type(Model, Self)
+                            , Term
+                            ]
                           )}
     end.
+
+-spec print_exact_map(lee:model_fragment(), lee:typedef()) ->
+                             iolist().
+print_exact_map(Model, {_, #{exact_map_spec := Spec}, _}) ->
+    %% FIXME: Wrong!
+    io_lib:format( "~w"
+                 , [maps:map( fun(_, V) ->
+                                      print_type(Model, V)
+                              end
+                            , Spec
+                            )]
+                 ).
 
 number() ->
     union(integer(), float()).
 
-print_type(Type) ->
-    %% TODO: stub
-    io_lib:format("~p", [Type]).
+print_type_(_, {var, Var}) ->
+    io_lib:format("_~w", [Var]);
+print_type_(_, Atom) when is_atom(Atom) ->
+    atom_to_list(Atom);
+print_type_(_, Integer) when is_integer(Integer) ->
+    integer_to_list(Integer);
+print_type_(Model, Type) ->
+    {TypeId, _, _} = Type,
+    {Meta, Attrs, _} = lee_model:get(TypeId, Model),
+    case {lists:member(type, Meta), lists:member(typedef, Meta)} of
+        {true, false} ->
+            Fun = maps:get(print, Attrs),
+            Fun(Model, Type);
+        {false, true} ->
+            %% TODO This is not very nice:
+            io_lib:format("typedef(~p)", [TypeId])
+    end.
+
+print_type(Model, Type) ->
+    lists:flatten(print_type_(Model, Type)).
 
 %%====================================================================
 %% Internal functions

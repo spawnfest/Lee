@@ -160,6 +160,8 @@ traverse(Key, Fun, Acc0, MO0) ->
     case MO of
         {_, _} ->
             {MO, Acc1};
+        {_, _, []} ->
+            {MO, Acc1};
         {Metatype, Attrs, Children0} ->
             {Children, Acc} = traverse(Key, Fun, Acc1, Children0),
             {{Metatype, Attrs, Children}, Acc}

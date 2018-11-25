@@ -106,12 +106,12 @@ base_metamodel() ->
              , #{ value =>
                       {[metatype]
                       , #{meta_validate => fun validate_value/4}
-                      , #{}
+                      , []
                       }
                 , command =>
                       {[metatype]
                       , #{meta_validate => fun validate_command/4}
-                      , #{}
+                      , []
                       }
                 }
              ).
@@ -156,7 +156,7 @@ validate_term(Model, Type = {TypeName, _Attr, Params}, Term) ->
 -spec get(lee:model_fragment(), term(), lee:key()) ->
                  {ok, term()} | undefined.
 get(Model, Config, Key) ->
-    Getter = lee_model:get([lee, storage, getter], Model),
+    {_, #{getter := Getter}, _} = lee_model:get([lee, storage], Model),
     case Getter(Model, Config, Key) of
         {ok, Val} ->
             Val;
@@ -171,8 +171,6 @@ get(Model, Config, Key) ->
                           | {error, Errors :: [string()], Warnings :: [string()]}
                           .
 validate(Model, Config) ->
-    Lister = lee_model:get([lee, storage, list_all_keys], Model),
-    AllKeys = Lister(Model, Config),
     ModelIdx = lee_model:mk_metatype_index(Model),
     {Errors, Warnings} =
         lists:foldl( fun({MT, MOCS}, {E0, W0}) ->
@@ -207,7 +205,7 @@ validate_mt_instances(Model, Config, MetaTypeId, MOCS) ->
                                  {E1 ++ E0, W1 ++ W0}
                          end
                        , {[], []}
-                       , MOCS
+                       , map_sets:to_list(MOCS)
                        )
     catch _:_ ->
             %% TODO Ugly :(
@@ -224,12 +222,12 @@ validate_moc_instances(Model, Config, Validate, MOCId) ->
     end.
 
 validate_value(Model, Config, MOCId, {_, Attrs, _}) ->
-    Getter = lee_model:get([lee, storage, getter], Model),
+    {_, #{getter := Getter}, _} = lee_model:get([lee, storage], Model),
     Type = maps:get(type, Attrs),
     Mandatory = maps:get(mandatory, Attrs, false),
     case {Getter(Model, Config, MOCId), Mandatory} of
         {{ok, Term}, _} ->
-            validate_term(Model, MOCId, Term);
+            validate_term(Model, Type, Term);
         {undefined, false} ->
             ok;
         {undefined, true} ->
@@ -274,12 +272,12 @@ namespace_test() ->
 
 -define(valid(Config),
         ?assertMatch( {ok, _}
-                    , lee:validate(Model, Config)
+                    , catch lee:validate(Model, Config)
                     )).
 
 -define(invalid(Config),
         ?assertMatch( {error, _, _}
-                    , lee:validate(Model, Config)
+                    , catch lee:validate(Model, Config)
                     )).
 
 validate_test() ->
@@ -292,11 +290,18 @@ validate_test() ->
                        , []
                        }
               },
-    {ok, Model} = lee_model:merge([ lee_map_getter:model()
-                                  , lee:base_model()
+    {ok, Model} = lee_model:merge([ lee:base_model()
                                   , lee:base_metamodel()
-                                  %% , Model0
+                                  , lee_map_getter:model()
+                                  , Model0
                                   ]),
-    ?valid(#{foo => true}).
+    ?valid(#{[foo] => true}),
+    ?valid(#{[foo] => true, [bar] => 1}),
+    ?valid(#{[foo] => false, [bar] => -12}),
+    ?invalid(#{}),
+    ?invalid(#{[bar] => 1}),
+    ?invalid(#{[foo] => 1}),
+    ?invalid(#{[foo] => true, [bar] => 1.0}),
+    ok.
 
 -endif.

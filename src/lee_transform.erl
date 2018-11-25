@@ -186,16 +186,28 @@ mk_type_alias(Line, {_Name, Arity}, AST) ->
 
 -spec check_local_type(local_tref(), #s{}) ->
                          #s{}.
-check_local_type(TRef, State) ->
-    %% FIXME:
-    State.
+check_local_type( TRef
+                , State0 = #s{ reflected_types = RT
+                             , local_types = LT
+                             }
+                ) ->
+    case {maps:is_key(TRef, LT), maps:is_key(TRef, RT)} of
+        {true, false} ->
+            %% Dirty hack to avoid infinite loop:
+            State1 = State0#s{ reflected_types =
+                                   RT #{TRef => in_progress}
+                             },
+            mk_lee_type(TRef, State1);
+        _ ->
+            State0
+    end.
 
 reflect_type({{Name, Arity}, {Namespace, _}}) ->
     Vars = [{var, 0, list_to_atom("V" ++ integer_to_list(I))}
             || I <- lists:seq(0, Arity - 1)
            ],
     Line = 0,
-    Attrs = {map, Line, []}, %% TODO: do something with attrs
+    Attrs = {map, Line, []}, %% TODO: do something with attrs?
     {function, Line, Name, Arity
     , [{clause, Line, Vars, []
        , [?MK_TYPEREF( Line

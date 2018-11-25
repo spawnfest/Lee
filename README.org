@@ -24,11 +24,11 @@ Software configuration is a solved problem. The solution is to gather
 all the information about the user-facing commands and parameters in
 one place called /data model/ and generate all kinds of code and
 documentation from it, instead of spending a lot of time trying to
-keep everything in sync and inevitably failing.
+keep everything in sync and inevitably failing in the end.
 
-Unfortunately, the existing data modeling solutions are extremely
-heavy and nasty to deal with. One doesn't want to mess with YANG
-compilers and proprietary libraries for a mere small tool, and it's
+Unfortunately the existing data modeling solutions are extremely heavy
+and nasty to deal with. One doesn't want to mess with YANG compilers
+and proprietary libraries for a mere small tool, and it's
 understandable. /Lee/ attempts to implement a /reasonably useful/ data
 modeling DSL, some bare-bones libraries for CLI and config file
 parsing, together with the model validation routines in under 3000 LOC
@@ -203,7 +203,7 @@ easily transformed to manpages and what not. TBD
 * Demo application
 
 [[file:src/demo.erl]] contains a simple application that reads some
-environment variables and CLI options, then reads a config file and
+environment variables and CLI options, then parses a config file and
 validates its contents. It's completely useless and just demonstrates
 that /Lee/ library (sometimes) works.
 

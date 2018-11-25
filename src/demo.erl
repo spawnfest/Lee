@@ -18,8 +18,8 @@ model() ->
                          , #{ mandatory => true
                             , type => string()
                             , oneliner => "Path to the eterm file to verify"
-                            , doc => "Path to the eterm file containing a value of stupid_list()"
-                                     "type at `list' key"
+                            , doc => "Path to the eterm file containing a value of\n"
+                                     "maybe_stupid_list() type at `list' key"
                             , env => "FILE"
                             , cli_param => "file"
                             , cli_short => $f
@@ -45,8 +45,7 @@ model() ->
                                   , lee_cli:metamodel()
                                   , lee_env:metamodel()
                                   , lee_map_getter:model()
-                                  , lee:type_refl([my_types], [ stupid_list/1
-                                                              , maybe_stupid_list/1
+                                  , lee:type_refl([my_types], [ maybe_stupid_list/1
                                                               ])
                                   , MyModel
                                   ]),

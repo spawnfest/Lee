@@ -22,7 +22,9 @@
 
 -type metatype() :: atom().
 
--type node_id() :: term().
+-type node_id() :: atom()
+                 | tuple()
+                 .
 
 -type key() :: [node_id()].
 

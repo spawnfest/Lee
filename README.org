@@ -7,10 +7,10 @@
   make an error in the config. I want documentation about all
   configurable parameters, their purpose and type.
 
-- As a designer I want to develop the tool instead of dealing with
-  the boring configuration-related stuff.
+- As a designer I want to focus on the business logic instead of
+  dealing with the boring configuration-related stuff.
 
-There are few approaches to this conflict:
+There are a few approaches to this conflict:
 
 [[file:doc/images/explanation.png]]
 
@@ -33,6 +33,62 @@ understandable. /Lee/ attempts to implement a /reasonably useful/ data
 modeling DSL, some bare-bones libraries for CLI and config file
 parsing, together with the model validation routines in under 3000 LOC
 or so.
+
+* Basic examples
+
+/Lee/ provides a /base model/ containing definitions necessary for
+veryfying plain Erlang terms. Let's use it to verify some basic types:
+
+#+BEGIN_SRC erlang
+-include("lee_types.hrl").
+
+main() ->
+  Model = lee:base_model(),
+  ok = lee:validate_term(Model, boolean(), true),
+  ok = lee:validate_term(Model, boolean(), false),
+  {error, "Expected true | false, got 42"} =
+    lee:validate_term(Model, boolean(), 42),
+  ok = lee:validate_term(Model, string(), "Hi!"),
+  {error, "Expected list(0..1114111), got [100, -1]"} =
+    lee:validate_term(Model, string(), [100, -1]).
+#+END_SRC
+
+Now let's play with some custom types. =lee:type_refl/2= syntax
+construction invokes a parse transform generating a /Lee type/ from a
+dialyzer type spec. It takes two arguments: first one is the namespace
+for the generated types, and the second one is a list of local type
+definitions that should be included in the model.
+
+#+BEGIN_SRC erlang
+-include("lee_types.hrl").
+
+-type stupid_list(A) :: {cons, A, stupid_list(A)}
+                      | nil
+                      .
+
+-type foo(A) :: stupid_list(A)
+              | list(A)
+              .
+
+main() ->
+  %% Generate a model containing bar/1 type:
+  Model0 = lee:type_refl([my, model], [foo/1]),
+  %% Merge it with the Lee base model:
+  {ok, Model} = lee_model:merge( lee:base_model()
+                               , Model0
+                               ),
+  ok = lee:validate_term(Model, foo(atom()), [foo, bar]),
+  ok = lee:validate_term(Model, foo(atom()), {cons, foo, {cons, bar, nil}}).
+#+END_SRC
+
+Note: you don't need to include all the types in the list, Lee will
+figure out the dependecies.
+
+Note: opaque types can't be reflected (obviously).
+
+Note: =lee:type_refl= generates a local function with the same name as
+the type. You will get a compilation error if you will try to reflect
+a type =foo/0= and there is already a function =foo/0=.
 
 * Name?
 

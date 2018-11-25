@@ -72,13 +72,13 @@ definitions that should be included in the model.
 
 main() ->
   %% Generate a model containing bar/1 type:
-  Model0 = lee:type_refl([my, model], [foo/1, stupid_list/1]),
+  Model0 = lee:type_refl([my, model], [foo/1]),
   %% Merge it with the Lee base model:
   {ok, Model} = lee_model:merge( lee:base_model()
                                , Model0
                                ),
   ok = lee:validate_term(Model, foo(atom()), [foo, bar]),
-  ok = lee:validate_term(Model, stupid_list(atom()), {cons, foo, {cons, bar, nil}}).
+  ok = lee:validate_term(Model, foo(atom()), {cons, foo, {cons, bar, nil}}).
 #+END_SRC
 
 Note: you don't need to include all the types in the list, Lee will

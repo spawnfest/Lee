@@ -37,7 +37,7 @@ model() ->
                             , mandatory => true
                             , oneliner => "Term to verify"
                             , doc => "It should be a list of some sort"
-                            , file_key => term
+                            , file_key => list
                             }}
                },
     {ok, Model} = lee_model:merge([ lee:base_model()

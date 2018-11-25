@@ -198,9 +198,27 @@ And it's all that it takes.
 ** TODO Documentation
 
 Note that the model already contains the docstrings which can be
-easily transformed to manpages and what not.
+easily transformed to manpages and what not. TBD
+
+* Demo application
+
+[[file:src/demo.erl]] contains a simple application that reads some
+environment variables and CLI options, then reads a config file and
+validates its contents. It's completely useless and just demonstrates
+that /Lee/ library (sometimes) works.
+
+Build by running make (assuming rebar3 is present in the path).
+
+Try:
+
+#+BEGIN_SRC bash
+_build/default/bin/demo --file priv/demo-correct-1.eterm
+FILE="priv/demo-correct-2.eterm" _build/default/bin/demo
+FILE="priv/demo-correct-2.eterm" _build/default/bin/demo --file priv/demo-incorrect-2.eterm
+#+END_SRC
 
 * TODO Metamodels
+Metamodels validate user models. TBD
 
 * Name?
 

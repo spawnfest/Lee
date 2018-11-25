@@ -1,5 +1,7 @@
 -module(lee_env).
 
+%% Sketchiness level > 9000, for demonstration only
+
 -export([ metamodel/0
         , read/1
         ]).

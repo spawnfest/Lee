@@ -107,7 +107,7 @@ metametamodel() ->
                    , lee:typedef()
                    , term()
                    ) -> validate_result().
-validate_term(Model, Atom, Term) when is_atom(Atom) ->
+validate_term(_Model, Atom, Term) when is_atom(Atom) ->
     case Term of
         Atom ->
             ok;
@@ -116,7 +116,7 @@ validate_term(Model, Atom, Term) when is_atom(Atom) ->
                           , [Atom, Term]
                           )}
     end;
-validate_term(Model, Type = {TypeName, Attr, Params}, Term) ->
+validate_term(Model, Type = {TypeName, _Attr, Params}, Term) ->
     {Meta, Attr1, _} = lee_model:get(TypeName, Model),
     case {lists:member(type, Meta), lists:member(typedef, Meta)} of
         {true, false} ->
@@ -141,9 +141,13 @@ format(Fmt, Attrs) ->
 
 subst_type_vars(Atom, _) when is_atom(Atom) ->
     Atom;
+subst_type_vars({var, Var}, VarVals) ->
+    #{Var := Subst} = VarVals,
+    Subst;
 subst_type_vars({Meta, Attr, Params}, VarVals) ->
-    {Meta, Attr, [case VarVals of
-                      #{I := Subst} ->
+    {Meta, Attr, [case I of
+                      {var, Var} ->
+                          #{Var := Subst} = VarVals,
                           Subst;
                       _ ->
                           subst_type_vars(I, VarVals)

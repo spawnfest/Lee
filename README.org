@@ -87,8 +87,8 @@ figure out the dependecies.
 Note: opaque types can't be reflected (obviously).
 
 Note: =lee:type_refl= generates a local function with the same name as
-the type. You will get a compilation error if you will try to reflect
-a type =foo/0= and there is already a function =foo/0=.
+the type. You will get a compilation error if you try to reflect a
+type =foo/0= and there is already a function =foo/0=.
 
 * Name?
 

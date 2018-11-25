@@ -532,7 +532,7 @@ typedef_test() ->
         end,
     Model0 = #{stupid_list =>
                    {[typedef]
-                   , #{ type => union( tuple(['$a', StupidList('$a')])
+                   , #{ type => union( tuple([{var, '$a'}, StupidList({var, '$a'})])
                                      , nil
                                      )
                       , type_variables => ['$a']
@@ -550,5 +550,18 @@ typedef_test() ->
     ?invalid(T, 1.1),
     ?invalid(T, {1, foo}),
     ?invalid(T, {foo, {42, {1.1, nil}}}).
+
+typedef_2_test() ->
+    Model0 = #{foo => {[typedef]
+                      , #{ type => {var, '1'}
+                         , type_variables => ['1']
+                         }
+                      , #{}
+                      }},
+    {ok, Model} = lee_model:merge(Model0, lee:base_model()),
+    T = fun(A) -> {[foo], #{}, [A]} end,
+    ?valid(T(boolean()), true),
+    ?valid(T(boolean()), false),
+    ?invalid(T(boolean()), 1).
 
 -endif.

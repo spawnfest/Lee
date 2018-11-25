@@ -6,6 +6,13 @@
 %% TODO: Error handling is inexistent
 %% TODO: Parse `-export_type' attribute and export lee types automatically
 
+-record(s, %% TODO: field types
+        { typedefs
+        , custom_verif
+        , types_to_reflect
+        , types_to_export
+        }).
+
 -define(INT(Line, Val),
         {integer, Line, Val}).
 
@@ -48,46 +55,61 @@
 -define(LTYPE_REF(Name, Arity),
         {op, _, '/', ?ATOM(Name), {integer, _, Arity}}).
 
-parse_transform(Forms, _Options) ->
-    Ignored = ignored(Forms),
-    CustomVerif = custom_verify(Forms),
-    Typedefs0 = local_typedefs(Forms),
+parse_transform(Forms0, _Options) ->
+    Ignored = ignored(Forms0),
+    CustomVerif = custom_verify(Forms0),
+    Typedefs0 = local_typedefs(Forms0),
     Typedefs = maps:without(Ignored, Typedefs0),
     io:format( "~p~nIgnored: ~p~nCustom: ~p~nTypes ~p~n"
-             , [Forms, Ignored, CustomVerif, Typedefs]
+             , [Forms0, Ignored, CustomVerif, Typedefs]
              ),
-    forms([], Forms).
+    State0 = #s{ typedefs = Typedefs
+               , custom_verif = CustomVerif
+               , types_to_reflect = []
+               , types_to_export = []
+               },
+    {Forms1, State} = forms(State0, Forms0),
+    Forms1.
 
-forms(LocalTypes, Foo = ?LCALL(Line, lee_type_refl, [Namespace, Types0])) ->
-    try
-        Types1 =
-            literal_list( fun(?LTYPE_REF(Name, Arity)) ->
-                                  {Name, Arity}
-                          end
-                        , Types0
-                        ),
-        Types =
-            mk_literal_list( Line
-                           , fun({Name, Arity}) ->
-                                     {tuple, Line
-                                     , [?ATOM(Line, Name), ?INT(Line, Arity)]
-                                     }
-                             end
-                           , Types1
-                           ),
-        erlang:display({types, Types}),
-        ?MK_RCALL(Line, lee, namespace, [Namespace, Types])
-    catch
-        {trans_error, Line, Message, Args} ->
-            error(Line) %% TODO do something smart instead of crashing
-    end;
-forms(LocalTypes, L) when is_list(L) ->
-    [forms(LocalTypes, Term) || Term <- L];
-forms(LocalTypes, T) when is_tuple(T) ->
+forms(State0, ?RCALL(Line, lee, type_refl, [Namespace, Types0])) ->
+    Types1 =
+        literal_list( fun(?LTYPE_REF(Name, Arity)) ->
+                              {Name, Arity}
+                      end
+                    , Types0
+                    ),
+    Types =
+        mk_literal_list( Line
+                       , fun({Name, Arity}) ->
+                                 Key = {tuple, Line
+                                       , [?ATOM(Line, Name), ?INT(Line, Arity)]
+                                       },
+                                 Val = ?ATOM(Line, undefined),
+                                 {tuple, Line, [Key, Val]}
+                         end
+                       , Types1
+                       ),
+    erlang:display({types, Types}),
+    AST = ?MK_RCALL(Line, lee, namespace, [ Namespace
+                                          , ?MK_RCALL(Line, maps, from_list, [Types])
+                                          ]),
+    State = State0,
+    {AST, State};
+forms(State0, L) when is_list(L) ->
+    {ASTL, State} = lists:foldl( fun(I, {L0, State0}) ->
+                                         {V, State} = forms(State0, I),
+                                         {[V|L0], State}
+                                 end
+                               , {[], State0}
+                               , L
+                               ),
+    {lists:reverse(ASTL), State};
+forms(State0, T) when is_tuple(T) ->
     L = tuple_to_list(T),
-    list_to_tuple(forms(LocalTypes, L));
-forms(_, T) ->
-    T.
+    {AST, State} = forms(State0, L),
+    {list_to_tuple(AST), State};
+forms(State, AST) ->
+    {AST, State}.
 
 ignored(Forms) ->
     DeepDefs = [Defs || {attribute, _, lee_ignore, Defs} <- Forms],

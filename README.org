@@ -36,6 +36,8 @@ or so.
 
 * Basic examples
 
+** Type reflection
+
 /Lee/ provides a /base model/ containing definitions necessary for
 veryfying plain Erlang terms. Let's use it to verify some basic types:
 
@@ -89,6 +91,58 @@ Note: opaque types can't be reflected (obviously).
 Note: =lee:type_refl= generates a local function with the same name as
 the type. You will get a compilation error if you try to reflect a
 type =foo/0= and there is already a function =foo/0=.
+
+** Model validation
+
+Validating terms against typespecs in the runtime is cool and all, but
+it's still a chore. It can be avoided be defining a custom data model
+describing configuration parameters and their types. Let's create one:
+
+#+BEGIN_SRC erlang
+-include("lee_types.hrl").
+
+main(Config) ->
+    %% Define a custom data model:
+    MyModel = #{ foo => {[value]
+                        , #{ mandatory => true
+                           , type => boolean()
+                           , oneliner => "This values controls fooing"
+                           , doc => "Blah blah blah"
+                           }}
+               , bar => {[value]
+                        , #{ type => integer()
+                           , oneliner => "This values controls baring"
+                           , doc => "Blah blah blah"
+                           , default => 42
+                           }}
+               },
+    %% [value] is a `metatype' which specifies that [foo] and [bar] can be
+    %% retrieved from a config. There may be multiple metatypes; their
+    %% attributes are row-polymorphic
+
+    %% Merge our model with a few standard ones:
+    {ok, Model} = lee_model:merge([ %% Define erlang native types:
+                                    lee:base_model()
+                                    %% Define some basic metatypes, like `value'
+                                  , lee:base_metamodel()
+                                    %% Specify that the config is stored as a simple map:
+                                  , lee_map_getter:model()
+                                  , Model0
+                                  ]),
+    %% Now we can verify `Config' against the model:
+    case lee:validate(Model, Config) of
+      {ok, _Warnings} ->
+          %% And finally we can read values from the config
+          %% And they do have the specified types!
+          {ok, Foo} = lee:get(Model, Config, [foo]),
+          {ok, Bar} = lee:get(Model, Config, [bar]),
+          ok;
+      {error, Errors, _Warnings} ->
+          io:format("Invalid config: ~p~n", [Errors]),
+          halt(1)
+     end.
+#+END_SRC
+
 
 * Name?
 

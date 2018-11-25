@@ -32,7 +32,7 @@
 merge(FragList) ->
     try
         {ok, lists:foldl( fun(MF, Acc) ->
-                                  merge([], Acc, MF)
+                                  merge([], Acc, desugar(MF))
                           end
                         , #{}
                         , FragList
@@ -48,7 +48,7 @@ merge(FragList) ->
                  .
 merge(M1, M2) ->
     try
-        {ok, merge([], M1, M2)}
+        {ok, merge([], desugar(M1), desugar(M2))}
     catch
         Err = {clashing_keys, _} ->
             Err

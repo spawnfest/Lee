@@ -161,7 +161,7 @@ get(Model, Config, Key) ->
         {ok, Val} ->
             Val;
         undefined ->
-            {MetaTypes, Attrs, _} = lee_model:get(Model, Key),
+            {MetaTypes, Attrs, _} = lee_model:get(Key, Model),
             maps:get(default, Attrs)
     end.
 
@@ -283,11 +283,9 @@ namespace_test() ->
 validate_test() ->
     Model0 = #{ foo => {[value]
                        , #{mandatory => true, type => lee_types:boolean()}
-                       , []
                        }
               , bar => {[value]
                        , #{type => lee_types:integer()}
-                       , []
                        }
               },
     {ok, Model} = lee_model:merge([ lee:base_model()
@@ -303,5 +301,25 @@ validate_test() ->
     ?invalid(#{[foo] => 1}),
     ?invalid(#{[foo] => true, [bar] => 1.0}),
     ok.
+
+get_test() ->
+    Model0 = #{ foo => {[value]
+                       , #{mandatory => true, type => lee_types:boolean()}
+                       }
+              , bar => {[value]
+                       , #{type => lee_types:integer(), default => 42}
+                       }
+              },
+    {ok, Model} = lee_model:merge([ lee:base_model()
+                                  , lee:base_metamodel()
+                                  , lee_map_getter:model()
+                                  , Model0
+                                  ]),
+    Config = #{ [foo] => true
+              },
+    ?assertMatch(true, lee:get(Model, Config, [foo])),
+    ?assertMatch(42, lee:get(Model, Config, [bar])),
+    ok.
+
 
 -endif.

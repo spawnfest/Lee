@@ -98,10 +98,14 @@ main(Args) ->
                     {ok, Deps} = lee:get(TermModel, Terms, [deps]),
                     io:format("list: ~p~ndeps: ~p~n", [List, Deps]);
                 {error, Errors, _Warnings} ->
-                    io:format("Validation failed: ~p~n", [Errors]),
+                    io:format( "Validation failed:~n~s~n"
+                             , [string:join(Errors, "\n")]
+                             ),
                     halt(1)
             end;
         {error, Errors, _Warnings} ->
-            io:format("Invalid config: ~p~n", [Errors]),
+            io:format( "Invalid config:~n~s~n"
+                     , [string:join(Errors, "\n")]
+                     ),
             halt(1)
     end.

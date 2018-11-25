@@ -35,6 +35,8 @@
 
 -type my_byte() :: 0..255.
 
+-type remote_types() :: lee_types:list(lee_types:boolean()).
+
 %% Recursive type is fine too:
 -type stupid_list(A) :: {cons, A, stupid_list(A)} | nil.
 
@@ -52,7 +54,7 @@ type_refl_test() ->
                                       , non_empty_list_of_bools/0
                                       , my_int/0
                                       , my_byte/0
-                                      %%, stupid_list/1
+                                      , remote_types/0
                                       ]),
     ?assertEqual( ?typedef(foo, [])
                 , catch lee_model:get([foo, bar, {foo_atom, 0}], Model)
@@ -83,5 +85,8 @@ type_refl_test() ->
                 ),
     ?assertEqual( ?typedef(range(0, 255), [])
                 , catch lee_model:get([foo, bar, {my_byte, 0}], Model)
+                ),
+    ?assertEqual( ?typedef(list(boolean()), [])
+                , catch lee_model:get([foo, bar, {remote_types, 0}], Model)
                 ),
     ok.

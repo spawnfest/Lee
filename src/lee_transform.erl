@@ -64,9 +64,9 @@ parse_transform(Forms0, _Options) ->
     CustomVerif = custom_verify(Forms0),
     Typedefs0 = local_typedefs(Forms0),
     Typedefs = maps:without(Ignored, Typedefs0),
-    io:format( "~p~nIgnored: ~p~nCustom: ~p~nTypes ~p~n"
-             , [Forms0, Ignored, CustomVerif, Typedefs]
-             ),
+    %% io:format( "~p~nIgnored: ~p~nCustom: ~p~nTypes ~p~n"
+    %%          , [Forms0, Ignored, CustomVerif, Typedefs]
+    %%          ),
     State0 = #s{ local_types = Typedefs
                , custom_verif = CustomVerif
                , reflected_types = #{}
@@ -86,7 +86,7 @@ forms(?RCALL(Line, lee, type_refl, [Namespace0, Types0]), State0) ->
                          ),
     State2 = lists:foldl(fun mk_lee_type/2, State1, Types1),
     #s{reflected_types = RTypes} = State2,
-    io:format("State: ~p~n", [State2]),
+    %% io:format("State: ~p~n", [State2]),
     TypesAST = [?MK_TYPEDEF(Line, Name, Arity, AST)
                 || {{Name, Arity}, {Namespace1, AST}} <- maps:to_list(RTypes)
                  , Namespace1 =:= Namespace
@@ -128,10 +128,11 @@ local_typedefs(Forms) ->
 -spec mk_lee_type(local_tref(), #s{}) ->
                          #s{}.
 mk_lee_type(Type, State0) ->
-    #s{ local_types = #{Type := {AST0, Params}}
+    #s{ local_types = LocalTypes
       , line = Line
       , namespace = Namespace
       } = State0,
+    {AST0, Params} = maps:get(Type, LocalTypes),
     VarVals = do_type_vars(Line, Params),
     {AST, State1} = do_refl_type(State0, AST0, maps:from_list(VarVals)),
     #s{reflected_types = M0} = State1,
@@ -180,28 +181,18 @@ do_refl_type(State, Int = ?INT(_, _), _) ->
     {Int, State};
 do_refl_type(State, Atom = ?ATOM(_, _), _) ->
     {Atom, State};
-do_refl_type(State0, _AST = {type, Line, Name, Args0}, VarVals) ->
+do_refl_type(State0, {type, Line, Name, Args0}, VarVals) ->
     State1 = check_local_type({Name, length(Args0)}, State0),
-    {Args1, State} = lists:mapfoldl( fun(I, S) ->
-                                             do_refl_type(S, I, VarVals)
-                                     end
-                                   , State1
-                                   , Args0
-                                   ),
-    case lists:member(Name, [tuple, union]) of
-        true ->
-            Args = [mk_literal_list( Line
-                                   , fun(A) -> A end
-                                   , Args1
-                                   )];
-        false ->
-            Args = Args1
-    end,
+    {Args, State} = mk_args_list(State1, Name, Args0, VarVals),
     {?MK_LCALL(Line, Name, Args), State};
-do_refl_type(State0, AST0, VarVals) ->
-    erlang:display({owo, AST0}),
-    AST = ?ATOM(42, uguuuuu),
-    {AST, State0}.
+do_refl_type(State0, {remote_type, Line, CallSpec}, VarVals) ->
+    [Module, Name, Args0] = CallSpec,
+    {Args, State} = mk_args_list(State0, Name, Args0, VarVals),
+    AST = {call, Line
+          , {remote, Line, Module, Name}
+          , Args
+          },
+    {AST, State}.
 
 -spec do_type_vars(integer(), [ast()]) -> [{ast_var(), integer()}].
 do_type_vars(Line, Params) ->
@@ -213,6 +204,25 @@ do_type_vars(Line, Params) ->
                       , Params
                       ),
     Result.
+
+mk_args_list(State0, Name, Args0, VarVals) ->
+    #s{line = Line} = State0,
+    {Args1, State} = lists:mapfoldl( fun(I, S) ->
+                                             do_refl_type(S, I, VarVals)
+                                     end
+                                   , State0
+                                   , Args0
+                                   ),
+    case lists:member(Name, [tuple, union]) of
+        true ->
+            Args = [mk_literal_list( Line
+                                   , fun(A) -> A end
+                                   , Args1
+                                   )];
+        false ->
+            Args = Args1
+    end,
+    {Args, State}.
 
 literal_list(_, {nil, _}) ->
     [];

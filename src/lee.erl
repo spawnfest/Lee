@@ -86,17 +86,17 @@ namespace(Key, M) ->
 -spec base_model() -> lee:model_fragment().
 base_model() ->
     namespace([lee, base_types]
-             , #{ ?typedef(union,     2, validate_union,     print_union     )
-                , ?typedef(term,         validate_term,      print_term      )
-                , ?typedef(integer,      validate_integer,   print_integer   )
-                , ?typedef(float,        validate_float,     print_float     )
-                , ?typedef(atom,         validate_atom,      print_atom      )
-                , ?typedef(binary,       validate_binary,    print_binary    )
-                , ?typedef(tuple,        validate_any_tuple, print_any_tuple )
-                , ?typedef(tuple,     1, validate_tuple,     print_tuple     )
-                , ?typedef(list,      1, validate_list,      print_list      )
-                , ?typedef(map,       2, validate_map,       print_map       )
-                , ?typedef(exact_map, 1, validate_exact_map, print_exact_map )
+             , #{ ?typedef(union,      2, validate_union,       print_union      )
+                , ?typedef(term,          validate_term,        print_term       )
+                , ?typedef(integer,       validate_integer,     print_integer    )
+                , ?typedef(float,         validate_float,       print_float      )
+                , ?typedef(atom,          validate_atom,        print_atom       )
+                , ?typedef(binary,        validate_binary,      print_binary     )
+                , ?typedef(tuple,         validate_any_tuple,   print_any_tuple  )
+                , ?typedef(tuple,      1, validate_tuple,       print_tuple      )
+                , ?typedef(list,       1, validate_list,        print_list       )
+                , ?typedef(map,        2, validate_map,         print_map        )
+                , ?typedef(exact_map,  1, validate_exact_map,   print_exact_map  )
                 }
              ).
 
@@ -113,6 +113,11 @@ base_metamodel() ->
                 , command =>
                       {[metatype]
                       , #{meta_validate => fun validate_command/4}
+                      , []
+                      }
+                , valid_file =>
+                      {[metatype]
+                      , #{meta_validate => fun validate_valid_file/4}
                       , []
                       }
                 }
@@ -228,19 +233,33 @@ validate_moc_instances(Model, Config, Validate, MOCId) ->
             {[Err], []}
     end.
 
-validate_value(Model, Config, MOCId, {_, Attrs, _}) ->
+validate_value(Model, Config, MOId, {_, Attrs, _}) ->
     {_, #{getter := Getter}, _} = lee_model:get([lee, storage], Model),
     Type = maps:get(type, Attrs),
     Mandatory = maps:get(mandatory, Attrs, false),
-    case {Getter(Model, Config, MOCId), Mandatory} of
+    case {Getter(Model, Config, MOId), Mandatory} of
         {{ok, Term}, _} ->
             validate_term(Model, Type, Term);
         {undefined, false} ->
             ok;
         {undefined, true} ->
             {error, format( "Mandatory value ~p is missing in the config"
-                          , [MOCId]
+                          , [MOId]
                           )}
+    end.
+
+validate_valid_file(Model, Config, MOId, _) ->
+    {_, #{getter := Getter}, _} = lee_model:get([lee, storage], Model),
+    case Getter(Model, Config, MOId) of
+        {ok, Val} ->
+            case io_lib:char_list(Val) andalso filelib:is_file(Val) of
+                true ->
+                    ok;
+                false ->
+                    {error, format("File ~p does not exist", [Val])}
+            end;
+        undefined ->
+            ok
     end.
 
 validate_command(Model, Config, MOCId, {_, Attrs, Params}) ->

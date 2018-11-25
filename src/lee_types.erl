@@ -490,6 +490,11 @@ print_exact_map(Model, {_, #{exact_map_spec := Spec}, _}) ->
 number() ->
     union(integer(), float()).
 
+-spec valid_file(file:filename_all()) ->
+                        lee:typedef().
+valid_file(Filename) ->
+    ?te(valid_file, 0, #{filename => Filename}, []).
+
 print_type_(_, {var, Var}) ->
     io_lib:format("_~w", [Var]);
 print_type_(_, Atom) when is_atom(Atom) ->

@@ -204,9 +204,12 @@ easily transformed to manpages and what not. TBD
 * Demo application
 
 [[file:src/demo.erl]] contains a simple application that reads some
-environment variables and CLI options, then parses a config file and
-validates its contents. It's completely useless and just demonstrates
-that /Lee/ library (sometimes) works.
+environment variables and CLI options, then uses this data to open a
+file containing erlang terms, which then get validated against a
+model.
+
+It's completely useless and just demonstrates that /Lee/ library
+(somewhat) works.
 
 Build by running make (assuming rebar3 is present in the path).
 

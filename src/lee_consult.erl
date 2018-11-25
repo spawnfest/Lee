@@ -15,12 +15,7 @@ metamodel() ->
 read(Model, Filename) ->
     Idx = lee_model:mk_metatype_index(Model),
     CliArgs = map_sets:to_list(maps:get(consult, Idx, #{})),
-    case file:consult(Filename) of
-        {ok, Terms} ->
-            ok;
-        _ ->
-            Terms = []
-    end,
+    {ok, Terms} = file:consult(Filename),
     {_, #{ empty := Empty
          , put   := Put
          }, _} = lee_model:get([lee, storage], Model),

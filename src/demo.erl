@@ -6,15 +6,24 @@
                       | nil
                       .
 
+-type version() :: string().
+
+-type checkout() :: tag | branch | commit.
+
+-type dep_spec() :: {atom(), version()} %% Hex-style
+                  | {atom(), {git, string()}, {checkout(), string()}} %% Git
+                  .
+
 -type maybe_stupid_list(A) :: list(A)
                             | stupid_list(A)
                             .
 
 -include("lee_types.hrl").
 
-%% Create the configuration data model
-model() ->
-    MyModel = #{ file => {[value, environment_variable, cli_param]
+%% Configuration model, it validates CLI parameters and environment
+%% variables:
+model1() ->
+    MyModel = #{ file => {[value, environment_variable, cli_param, valid_file]
                          , #{ mandatory => true
                             , type => string()
                             , oneliner => "Path to the eterm file to verify"
@@ -32,48 +41,66 @@ model() ->
                            , cli_param => "bar"
                            , cli_short => $b
                            }}
-               , list => {[value, consult]
-                         , #{ type => maybe_stupid_list(atom())
-                            , mandatory => true
-                            , oneliner => "Term to verify"
-                            , doc => "It should be a list of some sort"
-                            , file_key => list
-                            }}
                },
     {ok, Model} = lee_model:merge([ lee:base_model()
                                   , lee:base_metamodel()
+                                  , lee_map_getter:model()
                                   , lee_cli:metamodel()
                                   , lee_env:metamodel()
-                                  , lee_map_getter:model()
-                                  , lee:type_refl([my_types], [ maybe_stupid_list/1
-                                                              ])
                                   , MyModel
                                   ]),
     Model.
 
+%% Term model, it validates files:
+model2() ->
+    TermModel = #{ list => {[value, consult]
+                           , #{ type => maybe_stupid_list(atom())
+                              , mandatory => true
+                              , oneliner => "List, perhaps stupid one"
+                              , doc => "Just to check that recursive types work too"
+                              , file_key => list
+                              }}
+                 , deps => {[value, consult]
+                           , #{ type => list(dep_spec())
+                              , oneliner => "List of dependencies"
+                              , doc => "Totally unrelated to rebar3"
+                              , file_key => deps
+                              , default => []
+                              }}
+                 },
+    {ok, Model} = lee_model:merge([ lee:base_model()
+                                  , lee:base_metamodel()
+                                  , lee_map_getter:model()
+                                  , lee_consult:metamodel()
+                                  , lee:type_refl([my_types], [ maybe_stupid_list/1
+                                                              , dep_spec/0
+                                                              ])
+                                  , TermModel
+                                  ]),
+    Model.
+
+
 main(Args) ->
-    Model = model(),
-    Config0 = lee_env:read(Model),
-    Config1 = lee_cli:read(Model, Args),
-    %% Let's suppose CLI arguments should override environment variables:
-    Config01 = maps:merge(Config0, Config1),
-    %% Get filename from the config received so far:
-    case lee:get(Model, Config01, [file]) of
-        {ok, Filename} -> ok;
-        _ -> Filename = ""
-    end,
-    Config2 = lee_consult:read(Model, Filename),
-    Config = maps:merge(Config01, Config2),
-    case lee:validate(Model, Config) of
-        {ok, _Warnings} ->
-            {ok, File} = lee:get(Model, Config, [file]),
-            {ok, Bar} = lee:get(Model, Config, [bar]),
-            {ok, List} = lee:get(Model, Config, [list]),
-            io:format( "file: ~p~n"
-                       "bar: ~p~n"
-                       "list: ~p~n"
-                     , [File, Bar, List]
-                     );
+    CfgModel = model1(),
+    TermModel = model2(),
+    Config = maps:merge( lee_env:read(CfgModel)
+                       , lee_cli:read(CfgModel, Args)
+                       ),
+    case lee:validate(CfgModel, Config) of
+        {ok, _} ->
+            {ok, File} = lee:get(CfgModel, Config, [file]),
+            {ok, Bar} = lee:get(CfgModel, Config, [bar]),
+            io:format("file: ~p~n" "bar: ~p~n", [File, Bar]),
+            Terms = lee_consult:read(TermModel, File),
+            case lee:validate(TermModel, Terms) of
+                {ok, _} ->
+                    {ok, List} = lee:get(TermModel, Terms, [list]),
+                    {ok, Deps} = lee:get(TermModel, Terms, [deps]),
+                    io:format("list: ~p~ndeps: ~p~n", [List, Deps]);
+                {error, Errors, _Warnings} ->
+                    io:format("Validation failed: ~p~n", [Errors]),
+                    halt(1)
+            end;
         {error, Errors, _Warnings} ->
             io:format("Invalid config: ~p~n", [Errors]),
             halt(1)

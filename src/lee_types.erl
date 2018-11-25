@@ -107,7 +107,7 @@ validate_union(Model, {_, _, [A, B]}, Term) ->
                 ok ->
                     ok;
                 {error, _} ->
-                    Msg = format( "Expected ~s | ~s, got ~p"
+                    Msg = format( "Expected ~s | ~s, got ~w"
                                 , [ print_type(Model, A)
                                   , print_type(Model, B)
                                   , Term
@@ -142,7 +142,7 @@ validate_integer(Model, Self = {_, #{range := {A, B}}, []}, Term) ->
         ok
     catch
         badint ->
-            {error, format( "Expected ~s, got ~p"
+            {error, format( "Expected ~s, got ~w"
                           , [print_type(Model, Self), Term]
                           )}
     end.
@@ -193,7 +193,7 @@ validate_float(_, _, Term) ->
     if is_float(Term) ->
             ok;
        true ->
-            {error, format("Expected float(), got ~p", [Term])}
+            {error, format("Expected float(), got ~w", [Term])}
     end.
 
 -spec print_float(lee:model_fragment(), lee:typedef()) ->
@@ -213,7 +213,7 @@ validate_atom(_, _, Term) ->
     if is_atom(Term) ->
             ok;
        true ->
-            {error, format("Expected atom(), got ~p", [Term])}
+            {error, format("Expected atom(), got ~w", [Term])}
     end.
 
 -spec print_atom(lee:model_fragment(), lee:typedef()) ->
@@ -233,7 +233,7 @@ validate_binary(_, _, Term) ->
     if is_binary(Term) ->
             ok;
        true ->
-            {error, format("Expected binary(), got ~p", [Term])}
+            {error, format("Expected binary(), got ~w", [Term])}
     end.
 
 -spec print_binary(lee:model_fragment(), lee:typedef()) ->
@@ -253,7 +253,7 @@ validate_any_tuple(_, _, Term) ->
     if is_tuple(Term) ->
             ok;
        true ->
-            {error, format("Expected tuple(), got ~p", [Term])}
+            {error, format("Expected tuple(), got ~w", [Term])}
     end.
 
 -spec print_any_tuple(lee:model_fragment(), lee:typedef()) ->
@@ -287,7 +287,7 @@ validate_tuple(Model, Self = {_, _, Params}, Term) ->
         ok
     catch
         badtuple ->
-            {error, format( "Expected ~s, got ~p"
+            {error, format( "Expected ~s, got ~w"
                           , [print_type(Model, Self), Term]
                           )}
     end.
@@ -346,14 +346,14 @@ validate_list( Model
         ok
     catch
         {badelem, Elem} ->
-            {error, format( "Expected ~s, got ~p in ~s"
+            {error, format( "Expected ~s, got ~w in ~s"
                           , [ print_type(Model, Param)
                             , Elem
                             , print_type(Model, Self)
                             ]
                           )};
         badlist ->
-            {error, format( "Expected ~s, got ~p"
+            {error, format( "Expected ~s, got ~w"
                           , [ print_type(Model, Self)
                             , Term
                             ]
@@ -395,14 +395,14 @@ validate_map( Model
         ok
     catch
         {badval, Key, Val} ->
-            {error, format( "Expected ~s, but key ~p got value ~p instead"
+            {error, format( "Expected ~s, but key ~w got value ~w instead"
                           , [ print_type(Model, Self)
                             , Key
                             , Val
                             ]
                           )};
         badmap ->
-            {error, format( "Expected ~s, got ~p"
+            {error, format( "Expected ~s, got ~w"
                           , [ print_type(Model, Self)
                             , Term
                             ]
@@ -454,7 +454,7 @@ validate_exact_map( Model
         ok
     catch
         {badval, Key, Val, ValType} ->
-            {error, format( "Expected ~s in key ~p of ~s, got ~p"
+            {error, format( "Expected ~s in key ~w of ~s, got ~w"
                           , [ print_type(Model, ValType)
                             , Key
                             , print_type(Model, Self)
@@ -462,13 +462,13 @@ validate_exact_map( Model
                             ]
                           )};
         {badkey, Key} ->
-            {error, format( "Missing key(s) ~p in ~s"
+            {error, format( "Missing key(s) ~w in ~s"
                           , [ Term
                             , print_type(Model, Self)
                             ]
                           )};
         badmap ->
-            {error, format( "Expected ~s, got ~p"
+            {error, format( "Expected ~s, got ~w"
                           , [ print_type(Model, Self)
                             , Term
                             ]
@@ -510,7 +510,7 @@ print_type_(Model, Type) ->
             Fun(Model, Type);
         {false, true} ->
             %% TODO This is not very nice:
-            io_lib:format("typedef(~p)", [TypeId])
+            io_lib:format("typedef(~w)", [TypeId])
     end.
 
 print_type(Model, Type) ->

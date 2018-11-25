@@ -2,6 +2,7 @@
 -define(LEE_TYPES_HRL, true).
 
 -import(lee_types, [ union/2
+                   , union/1
                    , boolean/0
                    , term/0
                    , any/0
@@ -12,7 +13,7 @@
                    , atom/0
                    , binary/0
                    , list/1
-                   , non_empty_list/1
+                   , nonempty_list/1
                    , string/0
                    , tuple/0
                    , tuple/1

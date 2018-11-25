@@ -35,6 +35,9 @@
 -define(LCALL(Line, Name, Args),
         {call, Line, ?ATOM(Name), Args}).
 
+-define(MK_LCALL(Line, Name, Args),
+        {call, Line, ?ATOM(Line, Name), Args}).
+
 -define(RCALL(Line, Module, Function, Args),
         {call, Line
         , {remote, _, ?ATOM(Module), ?ATOM(Function)}
@@ -158,15 +161,45 @@ mk_type_alias(Line, {Name, Arity}, AST) ->
        ]
      }.
 
--spec get_local_type(local_tref(), #s{}) ->
+-spec check_local_type(local_tref(), #s{}) ->
                          #s{}.
-get_local_type(TRef, State) ->
+check_local_type(TRef, State) ->
     %% FIXME:
-    TRef.
+    State.
 
+%% Yay! The only place where line numbering is more or less correct!
 -spec do_refl_type(#s{}, ast(), #{ast_var() => integer()}) ->
                           {ast(), #s{}}.
+do_refl_type(State, {var, Line, Var}, VarVals) ->
+    #{Var := N} = VarVals,
+    AST = {tuple, Line, [ ?ATOM(Line, var)
+                        , ?INT(Line, N)
+                        ]},
+    {AST, State};
+do_refl_type(State, Int = ?INT(_, _), _) ->
+    {Int, State};
+do_refl_type(State, Atom = ?ATOM(_, _), _) ->
+    {Atom, State};
+do_refl_type(State0, _AST = {type, Line, Name, Args0}, VarVals) ->
+    State1 = check_local_type({Name, length(Args0)}, State0),
+    {Args1, State} = lists:mapfoldl( fun(I, S) ->
+                                             do_refl_type(S, I, VarVals)
+                                     end
+                                   , State1
+                                   , Args0
+                                   ),
+    case lists:member(Name, [tuple, union]) of
+        true ->
+            Args = [mk_literal_list( Line
+                                   , fun(A) -> A end
+                                   , Args1
+                                   )];
+        false ->
+            Args = Args1
+    end,
+    {?MK_LCALL(Line, Name, Args), State};
 do_refl_type(State0, AST0, VarVals) ->
+    erlang:display({owo, AST0}),
     AST = ?ATOM(42, uguuuuu),
     {AST, State0}.
 

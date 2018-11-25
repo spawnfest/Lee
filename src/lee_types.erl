@@ -2,6 +2,7 @@
 
 %% API exports
 -export([ union/2
+        , union/1
         , boolean/0
         , validate_union/3
 
@@ -25,7 +26,7 @@
 
         , list/0
         , list/1
-        , non_empty_list/1
+        , nonempty_list/1
         , string/0
         , validate_list/3
 
@@ -74,6 +75,13 @@
 -spec union(lee:typedef(), lee:typedef()) -> lee:typedef().
 union(A, B) ->
     ?te([A, B]).
+
+-spec union([lee:typedef()]) -> lee:typedef().
+union([A, B|T]) ->
+    lists:foldl( fun union/2
+               , union(A, B)
+               , T
+               ).
 
 -spec validate_union( lee:model_fragment()
                     , lee:typedef()
@@ -252,8 +260,8 @@ list() ->
 list(Type) ->
     ?te(#{non_empty => false}, [Type]).
 
--spec non_empty_list(lee:typedef()) -> lee:typedef().
-non_empty_list(Type) ->
+-spec nonempty_list(lee:typedef()) -> lee:typedef().
+nonempty_list(Type) ->
     ?te(list, 1, #{non_empty => true}, [Type]).
 
 -spec validate_list( lee:model_fragment()
@@ -463,8 +471,8 @@ atom_test() ->
 list_test() ->
     Model = lee:base_model(),
     ?valid(list(), []),
-    ?valid(non_empty_list(integer()), [1, 2, 3]),
-    ?invalid(non_empty_list(term()), []),
+    ?valid(nonempty_list(integer()), [1, 2, 3]),
+    ?invalid(nonempty_list(term()), []),
     UnionL = list(union(boolean(), integer())),
     ?valid(UnionL, [true, false, 1, 10, -1]),
     ?invalid(UnionL, [true, false, 1, bar]),

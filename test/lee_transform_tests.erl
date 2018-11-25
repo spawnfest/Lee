@@ -43,6 +43,9 @@
 -lee_verify({url/0, is_url/0}).
 -type url() :: string().
 
+halpme(A) ->
+    A.
+
 type_refl_test() ->
     Model = lee:type_refl([foo, bar], [ simple/0
                                       , simple/1
@@ -55,7 +58,11 @@ type_refl_test() ->
                                       , my_int/0
                                       , my_byte/0
                                       , remote_types/0
+                                      , stupid_list/1
                                       ]),
+    ?assertMatch( {[foo, bar, {foo_atom, 0}], #{}, []}
+                , foo_atom()
+                ),
     ?assertEqual( ?typedef(foo, [])
                 , catch lee_model:get([foo, bar, {foo_atom, 0}], Model)
                 ),
@@ -88,5 +95,15 @@ type_refl_test() ->
                 ),
     ?assertEqual( ?typedef(list(boolean()), [])
                 , catch lee_model:get([foo, bar, {remote_types, 0}], Model)
+                ),
+    ?assertMatch( {[foo, bar, {stupid_list, 1}], _, [xxxx]}
+                , stupid_list(xxxx)
+                ),
+    ?assertEqual( ?typedef( union( tuple([cons, {var, 0}, stupid_list({var, 0})])
+                                 , nil
+                                 )
+                          , [0]
+                          )
+                , catch lee_model:get([foo, bar, {stupid_list, 1}], Model)
                 ),
     ok.

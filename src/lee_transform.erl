@@ -5,6 +5,7 @@
 %% TODO: Source code locations are... approximate
 %% TODO: Error handling is inexistent
 %% TODO: Parse `-export_type' attribute and export lee types automatically
+%% TODO: Reflect maps
 
 -type local_tref() :: {Name :: atom(), Arity :: integer()}.
 
@@ -56,6 +57,25 @@
         , AST
         }).
 
+-define(MK_TYPEREF(Line, Namespace, Name, Arity, Attrs, Params),
+        {tuple, Line
+        , [ mk_literal_list( Line
+                           , fun(A) when is_atom(A) ->
+                                     ?ATOM(Line, A);
+                                ({A, B}) ->
+                                     {tuple, Line
+                                     , [ ?ATOM(Line, A)
+                                       , ?INT(Line, B)
+                                       ]
+                                     }
+                             end
+                           , Namespace ++ [{Name, Arity}]
+                           )
+          , Attrs
+          , mk_literal_list(Line, fun(A) -> A end, Params)
+          ]
+        }).
+
 -define(LTYPE_REF(Name, Arity),
         {op, _, '/', ?ATOM(Name), {integer, _, Arity}}).
 
@@ -72,7 +92,9 @@ parse_transform(Forms0, _Options) ->
                , reflected_types = #{}
                },
     {Forms1, State} = forms(Forms0, State0),
-    Forms1.
+    Forms1 ++ [reflect_type(I)
+               || I <- maps:to_list(State#s.reflected_types)
+              ].
 
 forms(?RCALL(Line, lee, type_refl, [Namespace0, Types0]), State0) ->
     Namespace = literal_list(fun(?ATOM(A)) -> A end, Namespace0),
@@ -100,7 +122,7 @@ forms(?RCALL(Line, lee, type_refl, [Namespace0, Types0]), State0) ->
     State = State2,
     {AST, State};
 forms(L, State0) when is_list(L) ->
-    {AST, State} = lists:mapfoldl(fun forms/2, State0, L);
+    lists:mapfoldl(fun forms/2, State0, L);
 forms(T, State0) when is_tuple(T) ->
     L = tuple_to_list(T),
     {AST, State} = forms(L, State0),
@@ -141,7 +163,7 @@ mk_lee_type(Type, State0) ->
 
 -spec mk_type_alias(integer(), local_tref(), ast()) ->
                            #{local_tref() => ast()}.
-mk_type_alias(Line, {Name, Arity}, AST) ->
+mk_type_alias(Line, {_Name, Arity}, AST) ->
     Variables = mk_literal_list( Line
                                , fun(I) -> ?INT(Line, I) end
                                , lists:seq(0, Arity - 1)
@@ -168,7 +190,25 @@ check_local_type(TRef, State) ->
     %% FIXME:
     State.
 
-%% Yay! The only place where line numbering is more or less correct!
+reflect_type({{Name, Arity}, {Namespace, _}}) ->
+    Vars = [{var, 0, list_to_atom("V" ++ integer_to_list(I))}
+            || I <- lists:seq(0, Arity - 1)
+           ],
+    Line = 0,
+    Attrs = {map, Line, []}, %% TODO: do something with attrs
+    {function, Line, Name, Arity
+    , [{clause, Line, Vars, []
+       , [?MK_TYPEREF( Line
+                     , Namespace
+                     , Name
+                     , Arity
+                     , Attrs
+                     , Vars
+                     )]
+       }]
+    }.
+
+%% yay! The only place where line numbering is more or less correct!
 -spec do_refl_type(#s{}, ast(), #{ast_var() => integer()}) ->
                           {ast(), #s{}}.
 do_refl_type(State, {var, Line, Var}, VarVals) ->
@@ -181,7 +221,8 @@ do_refl_type(State, Int = ?INT(_, _), _) ->
     {Int, State};
 do_refl_type(State, Atom = ?ATOM(_, _), _) ->
     {Atom, State};
-do_refl_type(State0, {type, Line, Name, Args0}, VarVals) ->
+do_refl_type(State0, {Qualifier, Line, Name, Args0}, VarVals)
+  when Qualifier =:= type; Qualifier =:= user_type ->
     State1 = check_local_type({Name, length(Args0)}, State0),
     {Args, State} = mk_args_list(State1, Name, Args0, VarVals),
     {?MK_LCALL(Line, Name, Args), State};

@@ -32,7 +32,7 @@ type_refl_test() ->
                                       , simple/1
                                         %% , foo_atom/0
                                         %% , stupid_list/1
-                                      ]),
+                                       ]),
     ?assertEqual( ?typedef(boolean(), [])
                 , catch lee_model:get([foo, bar, {simple, 0}], Model)
                 ),

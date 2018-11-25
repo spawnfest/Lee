@@ -30,7 +30,16 @@
                  | {error, string()}
                  .
 merge(FragList) ->
-    lists:foldl(fun merge/2, #{}, FragList).
+    try
+        {ok, lists:foldl( fun(MF, Acc) ->
+                                  merge([], Acc, MF)
+                          end
+                        , #{}
+                        , FragList
+                        )}
+    catch Err = {clashing_keys, _} ->
+            Err
+    end.
 
 %% @doc Merge two model fragments while checking for clashing names
 -spec merge(lee:model_fragment(), lee:model_fragment()) ->
@@ -105,7 +114,7 @@ traverse(Fun, Acc0, M) ->
 %% @doc Make an index of MOCs belonging to metatypes. Assumes
 %% desugared model
 -spec mk_metatype_index(lee:model_fragment()) ->
-                           #{lee:metatype() => [map_sets:set(lee:key())]}.
+                           #{lee:metatype() => map_sets:set(lee:key())}.
 mk_metatype_index(MF) ->
     {_, Idx} = traverse( fun mk_metatype_index_/3
                        , #{}

@@ -53,8 +53,8 @@ main() ->
     lee:validate_term(Model, string(), [100, -1]).
 #+END_SRC
 
-Now let's play with some custom types. =lee:type_refl/2= syntax
-construction invokes a parse transform generating a /Lee type/ from a
+Now let's play with some custom types. =lee:type_refl/2= quasifunction
+invokes a parse transform generating a /type reflection/ from a
 dialyzer type spec. It takes two arguments: first one is the namespace
 for the generated types, and the second one is a list of local type
 definitions that should be included in the model.
@@ -72,17 +72,17 @@ definitions that should be included in the model.
 
 main() ->
   %% Generate a model containing bar/1 type:
-  Model0 = lee:type_refl([my, model], [foo/1]),
+  Model0 = lee:type_refl([my, model], [foo/1, stupid_list/1]),
   %% Merge it with the Lee base model:
   {ok, Model} = lee_model:merge( lee:base_model()
                                , Model0
                                ),
   ok = lee:validate_term(Model, foo(atom()), [foo, bar]),
-  ok = lee:validate_term(Model, foo(atom()), {cons, foo, {cons, bar, nil}}).
+  ok = lee:validate_term(Model, stupid_list(atom()), {cons, foo, {cons, bar, nil}}).
 #+END_SRC
 
 Note: you don't need to include all the types in the list, Lee will
-figure out the dependecies.
+figure out the dependencies.
 
 Note: opaque types can't be reflected (obviously).
 

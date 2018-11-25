@@ -140,7 +140,7 @@ validate_term(_Model, Atom, Term) when is_atom(Atom) ->
         Atom ->
             ok;
         _ ->
-            {error, format( "Expected ~w, got ~p"
+            {error, format( "Expected ~p, got ~p"
                           , [Atom, Term]
                           )}
     end;
@@ -243,7 +243,7 @@ validate_value(Model, Config, MOId, {_, Attrs, _}) ->
         {undefined, false} ->
             ok;
         {undefined, true} ->
-            {error, format( "Mandatory value ~w is missing in the config"
+            {error, format( "Mandatory value ~p is missing in the config"
                           , [MOId]
                           )}
     end.
@@ -256,7 +256,7 @@ validate_valid_file(Model, Config, MOId, _) ->
                 true ->
                     ok;
                 false ->
-                    {error, format("File ~w does not exist", [Val])}
+                    {error, format("File ~p does not exist", [Val])}
             end;
         undefined ->
             ok

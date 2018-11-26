@@ -4,10 +4,11 @@
 
 -include_lib("lee/include/lee_types.hrl").
 
--define(typedef(Type, TypeVars),
+-define(typedef(TN, Type, TypeVars),
         {[typedef]
         , #{ type           => Type
            , type_variables => TypeVars
+           , name           => atom_to_list(?MODULE) ++ ":" ++ atom_to_list(TN)
            }
         , #{}
         }).
@@ -63,43 +64,44 @@ type_refl_test() ->
     ?assertMatch( {[foo, bar, {foo_atom, 0}], #{}, []}
                 , foo_atom()
                 ),
-    ?assertEqual( ?typedef(foo, [])
+    ?assertEqual( ?typedef(foo_atom, foo, [])
                 , catch lee_model:get([foo, bar, {foo_atom, 0}], Model)
                 ),
-    ?assertEqual( ?typedef({var, 0}, [0])
+    ?assertEqual( ?typedef(simple, {var, 0}, [0])
                 , catch lee_model:get([foo, bar, {simple, 1}], Model)
                 ),
-    ?assertEqual( ?typedef(boolean(), [])
+    ?assertEqual( ?typedef(simple, boolean(), [])
                 , catch lee_model:get([foo, bar, {simple, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(list(string()), [])
+    ?assertEqual( ?typedef(strings, list(string()), [])
                 , catch lee_model:get([foo, bar, {strings, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(union([foo, bar, baz]), [])
+    ?assertEqual( ?typedef(foobar, union([foo, bar, baz]), [])
                 , catch lee_model:get([foo, bar, {foobar, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(tuple([float(), float(), xxx]), [])
+    ?assertEqual( ?typedef(my_tuple, tuple([float(), float(), xxx]), [])
                 , catch lee_model:get([foo, bar, {my_tuple, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(list(boolean()), [])
+    ?assertEqual( ?typedef(list_of_bools, list(boolean()), [])
                 , catch lee_model:get([foo, bar, {list_of_bools, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(nonempty_list(boolean()), [])
+    ?assertEqual( ?typedef(non_empty_list_of_bools, nonempty_list(boolean()), [])
                 , catch lee_model:get([foo, bar, {non_empty_list_of_bools, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(non_neg_integer(), [])
+    ?assertEqual( ?typedef(my_int, non_neg_integer(), [])
                 , catch lee_model:get([foo, bar, {my_int, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(range(0, 255), [])
+    ?assertEqual( ?typedef(my_byte, range(0, 255), [])
                 , catch lee_model:get([foo, bar, {my_byte, 0}], Model)
                 ),
-    ?assertEqual( ?typedef(list(boolean()), [])
+    ?assertEqual( ?typedef(remote_types, list(boolean()), [])
                 , catch lee_model:get([foo, bar, {remote_types, 0}], Model)
                 ),
     ?assertMatch( {[foo, bar, {stupid_list, 1}], _, [xxxx]}
                 , stupid_list(xxxx)
                 ),
-    ?assertEqual( ?typedef( union( tuple([cons, {var, 0}, stupid_list({var, 0})])
+    ?assertEqual( ?typedef( stupid_list
+                          , union( tuple([cons, {var, 0}, stupid_list({var, 0})])
                                  , nil
                                  )
                           , [0]

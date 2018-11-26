@@ -76,6 +76,9 @@
           ]
         }).
 
+-define(MK_PRINT_FUN(Line, Module, Name, Arity),
+        {string, Line, Module ++ ":" ++ Name}).
+
 -define(LTYPE_REF(Name, Arity),
         {op, _, '/', ?ATOM(Name), {integer, _, Arity}}).
 
@@ -87,6 +90,9 @@ parse_transform(Forms0, _Options) ->
     %% io:format( "~p~nIgnored: ~p~nCustom: ~p~nTypes ~p~n"
     %%          , [Forms0, Ignored, CustomVerif, Typedefs]
     %%          ),
+    [put(lee_transform_mod, Module)
+     || {attribute, _, module, Module} <- Forms0
+    ], %% TODO D'oh!
     State0 = #s{ local_types = Typedefs
                , custom_verif = CustomVerif
                , reflected_types = #{}
@@ -163,7 +169,7 @@ mk_lee_type(Type, State0) ->
 
 -spec mk_type_alias(integer(), local_tref(), ast()) ->
                            #{local_tref() => ast()}.
-mk_type_alias(Line, {_Name, Arity}, AST) ->
+mk_type_alias(Line, {Name, Arity}, AST) ->
     Variables = mk_literal_list( Line
                                , fun(I) -> ?INT(Line, I) end
                                , lists:seq(0, Arity - 1)
@@ -175,11 +181,19 @@ mk_type_alias(Line, {_Name, Arity}, AST) ->
             , ?ATOM(Line, type)
             , AST
             }
-          , {map_field_assoc, Line
-            , ?ATOM(Line, type_variables)
-            , Variables
-            }
-          ]}
+         , {map_field_assoc, Line
+           , ?ATOM(Line, type_variables)
+           , Variables
+           }
+         , {map_field_assoc, Line
+           , ?ATOM(Line, name)
+           , ?MK_PRINT_FUN( Line
+                          , atom_to_list(get(lee_transform_mod)) %% FIXME: D'oh!
+                          , atom_to_list(Name)
+                          , Arity
+                          )
+           }
+         ]}
        , {map, Line, []}
        ]
      }.

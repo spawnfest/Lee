@@ -502,15 +502,20 @@ print_type_(_, Atom) when is_atom(Atom) ->
 print_type_(_, Integer) when is_integer(Integer) ->
     integer_to_list(Integer);
 print_type_(Model, Type) ->
-    {TypeId, _, _} = Type,
-    {Meta, Attrs, _} = lee_model:get(TypeId, Model),
+    {TypeId, _, TypeParams} = Type,
+    UWU = {Meta, Attrs, _} = lee_model:get(TypeId, Model),
     case {lists:member(type, Meta), lists:member(typedef, Meta)} of
         {true, false} ->
             Fun = maps:get(print, Attrs),
             Fun(Model, Type);
         {false, true} ->
-            %% TODO This is not very nice:
-            io_lib:format("typedef(~p)", [TypeId])
+            StrParams = [print_type_(Model, I)
+                         || I <- TypeParams
+                        ],
+            TypedefName = maps:get(name, Attrs),
+            io_lib:format("~s(~s)", [ TypedefName
+                                    , lists:join($,, StrParams)
+                                    ])
     end.
 
 print_type(Model, Type) ->
@@ -676,6 +681,7 @@ typedef_test() ->
                                      , nil
                                      )
                       , type_variables => ['$a']
+                      , name => "stupid_list"
                       }
                    , #{}
                    }
@@ -695,6 +701,7 @@ typedef_2_test() ->
     Model0 = #{foo => {[typedef]
                       , #{ type => {var, '1'}
                          , type_variables => ['1']
+                         , name => "foo"
                          }
                       , #{}
                       }},
